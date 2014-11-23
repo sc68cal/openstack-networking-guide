@@ -17,6 +17,10 @@ external networks with minor modifications.
    tunnels, and external/internet. The OVS bridge 'br-ex' must contain a
    port on the external/internet interface.
 
+![Neutron DVR Scenario - Hardware Requirements](../common/images/networkguide-neutron-dvr-hw.png "Neutron DVR Scenario - Hardware Requirements")
+
+![Neutron DVR Scenario - Network Layout](../common/images/networkguide-neutron-dvr-networks.png "Neutron DVR Scenario - Network Layout")
+
 Note: Proper operation of DVR requires Open vSwitch 2.1 or newer and VXLAN
 requires kernel 3.13 or better. In general, only Fedora 20 currently meets
 or exceeds these minimum versions.
@@ -59,6 +63,8 @@ or exceeds these minimum versions.
   1. Open vSwitch service, ML2 plug-in, Open vSwitch agent, L3 agent,
      metadata agent, and any dependencies including the 'ipset' and
      'conntrack' utilities.
+
+![Neutron DVR Scenario - Service Layout](../common/images/networkguide-neutron-dvr-services.png "Neutron DVR Scenario - Service Layout")
 
 ## Architecture
 
