@@ -70,7 +70,19 @@ or exceeds these minimum versions.
 
 ### General
 
-### Networking
+![Neutron DVR Scenario - Architecture Overview](../common/images/networkguide-neutron-dvr-general.png "Neutron DVR Scenario - Architecture Overview")
+
+![Neutron DVR Scenario - Network Node Overview](../common/images/networkguide-neutron-dvr-network1.png "Neutron DVR Scenario - Network Node Overview")
+
+![Neutron DVR Scenario - Compute Node Overview](../common/images/networkguide-neutron-dvr-compute1.png "Neutron DVR Scenario - Compute Node Overview")
+
+### Components
+
+![Neutron DVR Scenario - Network Node Components](../common/images/networkguide-neutron-dvr-network2.png "Neutron DVR Scenario - Network Node Components")
+
+![Neutron DVR Scenario - Compute Node Components](../common/images/networkguide-neutron-dvr-compute2.png "Neutron DVR Scenario - Compute Node Components")
+
+### Network traffic flows
 
 ## Configuration
 
