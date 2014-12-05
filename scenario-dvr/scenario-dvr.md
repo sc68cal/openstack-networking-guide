@@ -84,6 +84,12 @@ or exceeds these minimum versions.
 
 ### Network traffic flows
 
+![Neutron DVR Scenario - Network Traffic Flow - North/South with Fixed IP Address](../common/images/networkguide-neutron-dvr-flow1.png "Neutron DVR Scenario - Network Traffic Flow - North/South with Fixed IP Address")
+
+![Neutron DVR Scenario - Network Traffic Flow - North/South with Floating IP Address](../common/images/networkguide-neutron-dvr-flow2.png "Neutron DVR Scenario - Network Traffic Flow - North/South with Floating IP Address")
+
+![Neutron DVR Scenario - Network Traffic Flow - East/West](../common/images/networkguide-neutron-dvr-flow3.png "Neutron DVR Scenario - Network Traffic Flow - East/West")
+
 ## Configuration
 
 ### Controller node (controller)
