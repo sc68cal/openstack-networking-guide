@@ -23,7 +23,7 @@ external networks with minor modifications.
 
 Note: Proper operation of DVR requires Open vSwitch 2.1 or newer and VXLAN
 requires kernel 3.13 or better. In general, only Fedora 20 currently meets
-or exceeds these minimum versions.
+or exceeds these minimum versions when using packages rather than source.
 
 ## Prerequisites
 
@@ -70,23 +70,102 @@ or exceeds these minimum versions.
 
 ### General
 
+The general DVR architecture augments the classic architecture by
+providing direct access to the external network on compute nodes.
+Tenant and external network routing moves to the compute nodes to
+eliminate single point of failure and performance issues. However,
+the network node still provides SNAT services for any instances
+without a floating IP address.
+
 ![Neutron DVR Scenario - Architecture Overview](../common/images/networkguide-neutron-dvr-general.png "Neutron DVR Scenario - Architecture Overview")
 
+Similar to the classic architecture, the network node runs single
+instances of the L3 agent, DHCP agent, and metadata agent. DVR can
+coexist with multiple DHCP agents. However, the DHCP agents cannot
+run on compute nodes. The L3 agent manages a second *snat* namespace
+that provides SNAT servies for any instances without a floating IP
+address. For instances using tenant networks on distributed routers,
+the *qrouter* namespace only handles metadata operations. For
+instances using tenant networks on classic routers, the *qrouter*
+namespace performs SNAT and handles metadata operations.
+
 ![Neutron DVR Scenario - Network Node Overview](../common/images/networkguide-neutron-dvr-network1.png "Neutron DVR Scenario - Network Node Overview")
+
+Contrary to the classic architecture, the compute node runs single
+instances of the L3 agent and metadata agent. The L3 agent manages
+distributed routers that handle network traffic among tenant networks
+using the same distributed router and external network traffic
+for instances with a floating IP address. The L3 agent manages a
+second *fip* namespace that handes floating IP addresses. The
+metadata agent handles metadata operations for instances on networks
+using a distributed router.
 
 ![Neutron DVR Scenario - Compute Node Overview](../common/images/networkguide-neutron-dvr-compute1.png "Neutron DVR Scenario - Compute Node Overview")
 
 ### Components
 
+The network node contains the following components:
+
+1. DHCP agent managing the *qdhcp* namespace.
+
+  1. The *dhcp* namespace provides DHCP services for instances on
+     networks using classic and distributed routers.
+
+1. L3 agent managing the *qrouter* and *snat* namespaces.
+
+  1. For instances on networks using distributed routers, the
+     *qrouter* namespace serves no purpose.
+
+  1. For instances on networks using classic routers, the *qrouter*
+     namespace performs SNAT between tenant and external networks.
+     It also routes metadata traffic between instances and the
+     metadata agent.
+
+  1. For instances on networks using distributed routers, the
+     *snat* namespace performs SNAT between tenant and external
+     networks for instances without a floating IP address.
+
+1. Metadata agent handling metadata operations.
+
+  1. The metadata agent handles metadata operations for instances
+     on networks using classic routers.
+
 ![Neutron DVR Scenario - Network Node Components](../common/images/networkguide-neutron-dvr-network2.png "Neutron DVR Scenario - Network Node Components")
+
+The compute nodes contain the following components:
+
+1. L3 agent managing the *qrouter* and *fip* namespaces.
+
+  1. For instances on networks using distributed routers, the *qrouter*
+     namespace routes east-west network traffic among tenant networks on
+     the same distributed router regardless of fixed or floating IP
+     addresses.
+
+  1. For instances on networks using distributed routers, the *fip*
+     namespace performs DNAT and SNAT between tenant and external
+     networks.
 
 ![Neutron DVR Scenario - Compute Node Components](../common/images/networkguide-neutron-dvr-compute2.png "Neutron DVR Scenario - Compute Node Components")
 
 ### Network traffic flows
 
+For instances without a floating IP address on networks using distributed
+routers, the network node routes north-south network traffic between
+tenant and external networks.
+
 ![Neutron DVR Scenario - Network Traffic Flow - North/South with Fixed IP Address](../common/images/networkguide-neutron-dvr-flowns1.png "Neutron DVR Scenario - Network Traffic Flow - North/South with Fixed IP Address")
 
+For instances with a floating IP address on networks using distributed
+routers, the compute node containing the instance routes north-south
+network traffic between tenant and external networks. This traffic flow
+avoids the network node.
+
 ![Neutron DVR Scenario - Network Traffic Flow - North/South with Floating IP Address](../common/images/networkguide-neutron-dvr-flowns2.png "Neutron DVR Scenario - Network Traffic Flow - North/South with Floating IP Address")
+
+For instances with or without a floating IP address on networks using
+distributed routers, the compute nodes route network traffic among
+tenant networks on the same distributed virtual router. This traffic
+flow avoids the network node.
 
 ![Neutron DVR Scenario - Network Traffic Flow - East/West](../common/images/networkguide-neutron-dvr-flowew1.png "Neutron DVR Scenario - Network Traffic Flow - East/West")
 
@@ -151,7 +230,7 @@ other nodes.
 ### Network node (network1)
 
 The network node provides DHCP service to all instances and SNAT service to
-instances without floating IP addresses.
+instances without a floating IP address.
 
 1. Configure base options.
 
@@ -491,16 +570,12 @@ addresses.
   +-------------------+------------------------------------------------------+
   ```
 
-1. Source the administrative tenant credentials.
-
-1. Obtain the tenant ID for the regular tenant. The next step uses
-   *cdef0071a0194d19ac6bb63802dc9bae* as an example.
-
-1. Create a distributed virtual router.
+1. Create a distributed virtual router. Configuring the
+   `router_distributed = True` option in the /etc/neutron/neutron.conf
+   file creates distributed routers by default.
 
   ```
-  $ neutron router-create --tenant-id REGULAR_TENANT_ID \
-    --distributed True demo-router
+  $ neutron router-create demo-router
   Created a new router:
   +-----------------------+--------------------------------------+
   | Field                 | Value                                |
@@ -517,7 +592,8 @@ addresses.
   +-----------------------+--------------------------------------+
   ```
 
-  Replace REGULAR_TENANT_ID with the tenant ID of the regular tenant.
+  Note: Default policy might prevent the 'distributed' flag from
+  appearing in the command output.
 
 1. Add a tenant subnet interface on the router.
 
