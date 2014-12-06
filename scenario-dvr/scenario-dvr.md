@@ -70,7 +70,7 @@ or exceeds these minimum versions when using packages rather than source.
 
 ### General
 
-The general DVR architecture augments the classic architecture by
+The general DVR architecture augments the legacy architecture by
 providing direct access to the external network on compute nodes.
 Tenant and external network routing moves to the compute nodes to
 eliminate single point of failure and performance issues. However,
@@ -79,26 +79,26 @@ without a floating IP address.
 
 ![Neutron DVR Scenario - Architecture Overview](../common/images/networkguide-neutron-dvr-general.png "Neutron DVR Scenario - Architecture Overview")
 
-Similar to the classic architecture, the network node runs single
+Similar to the legacy architecture, the network node runs single
 instances of the L3 agent, DHCP agent, and metadata agent. DVR can
-coexist with multiple DHCP agents. However, the DHCP agents cannot
-run on compute nodes. The L3 agent manages a second *snat* namespace
-that provides SNAT servies for any instances without a floating IP
+coexist with multiple DHCP agents. However, DHCP agents cannot run
+on compute nodes. The L3 agent manages a second *snat* namespace
+that provides SNAT services for any instances without a floating IP
 address. For instances using tenant networks on distributed routers,
 the *qrouter* namespace only handles metadata operations. For
-instances using tenant networks on classic routers, the *qrouter*
+instances using tenant networks on legacy routers, the *qrouter*
 namespace performs SNAT and handles metadata operations.
 
 ![Neutron DVR Scenario - Network Node Overview](../common/images/networkguide-neutron-dvr-network1.png "Neutron DVR Scenario - Network Node Overview")
 
-Contrary to the classic architecture, the compute node runs single
+Contrary to the legacy architecture, the compute node runs single
 instances of the L3 agent and metadata agent. The L3 agent manages
 distributed routers that handle network traffic among tenant networks
-using the same distributed router and external network traffic
-for instances with a floating IP address. The L3 agent manages a
-second *fip* namespace that handes floating IP addresses. The
-metadata agent handles metadata operations for instances on networks
-using a distributed router.
+on the same distributed router and external network traffic for
+instances with a floating IP address. The L3 agent manages a second
+*fip* namespace that handles floating IP addresses. The metadata agent
+handles metadata operations for instances on networks using a
+distributed router.
 
 ![Neutron DVR Scenario - Compute Node Overview](../common/images/networkguide-neutron-dvr-compute1.png "Neutron DVR Scenario - Compute Node Overview")
 
@@ -109,14 +109,14 @@ The network node contains the following components:
 1. DHCP agent managing the *qdhcp* namespace.
 
   1. The *dhcp* namespace provides DHCP services for instances on
-     networks using classic and distributed routers.
+     networks using legacy and distributed routers.
 
 1. L3 agent managing the *qrouter* and *snat* namespaces.
 
   1. For instances on networks using distributed routers, the
      *qrouter* namespace serves no purpose.
 
-  1. For instances on networks using classic routers, the *qrouter*
+  1. For instances on networks using legacy routers, the *qrouter*
      namespace performs SNAT between tenant and external networks.
      It also routes metadata traffic between instances and the
      metadata agent.
@@ -128,7 +128,7 @@ The network node contains the following components:
 1. Metadata agent handling metadata operations.
 
   1. The metadata agent handles metadata operations for instances
-     on networks using classic routers.
+     on networks using legacy routers.
 
 ![Neutron DVR Scenario - Network Node Components](../common/images/networkguide-neutron-dvr-network2.png "Neutron DVR Scenario - Network Node Components")
 
