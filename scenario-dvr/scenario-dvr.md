@@ -1,35 +1,45 @@
 # Scenario: Basic implementation of DVR
 
-This scenario describes a basic implementation of the distributed virtual
-router (DVR) redundancy feature using the ML2 plug-in with Open vSwitch, one
-flat external network, and VXLAN tenant networks. It can support VLAN
-external networks with minor modifications.
+This scenario describes a basic implementation of the OpenStack
+Networking distributed virtual router (DVR) redundancy feature using
+the ML2 plug-in with Open vSwitch (OVS). The example configuration
+creates one flat external network and VXLAN tenant networks. However,
+DVR also supports VLAN external networks and GRE tenant networks with
+minor modifications to the example configuration.
 
 ## Requirements
 
 1. One controller node with one network interface: management.
 
 1. One network node with three network interfaces: management, instance
-   tunnels, and external/internet. The OVS bridge 'br-ex' must contain a
-   port on the external/internet interface.
+   tunnels, and external (typically the Internet). The Open vSwitch
+   bridge `br-ex` must contain a port on the external interface.
 
-1. Two compute nodes with three network interfaces: management, instance
-   tunnels, and external/internet. The OVS bridge 'br-ex' must contain a
-   port on the external/internet interface.
+1. At least two compute nodes with three network interfaces: management,
+   instance tunnels, and external (typically the Internet). The Open
+   vSwitch bridge `br-ex` must contain a port on the external interface.
 
 ![Neutron DVR Scenario - Hardware Requirements](../common/images/networkguide-neutron-dvr-hw.png "Neutron DVR Scenario - Hardware Requirements")
 
 ![Neutron DVR Scenario - Network Layout](../common/images/networkguide-neutron-dvr-networks.png "Neutron DVR Scenario - Network Layout")
 
-Note: Proper operation of DVR requires Open vSwitch 2.1 or newer and VXLAN
-requires kernel 3.13 or better. In general, only Fedora 20 currently meets
-or exceeds these minimum versions when using packages rather than source.
+**Warning: Proper operation of DVR requires Open vSwitch 2.1 or newer
+and VXLAN requires kernel 3.13 or better. In general, only Fedora 20
+currently meets or exceeds these minimum versions when using packages
+rather than source. Also, the Juno release (2014.2) of neutron requires
+at least the following patch for proper operation of DVR:**
+
+https://review.openstack.org/#/c/133580/
+
+**For best operation, consider using the *master* branch of neutron:**
+
+http://git.openstack.org/cgit/openstack/neutron/
 
 ## Prerequisites
 
 1. Controller node
 
-  1. Operational SQL server with 'neutron' database with appropriate
+  1. Operational SQL server with `neutron` database and appropriate
      configuration in the neutron-server.conf file.
 
   1. Operational message queue service with appropriate configuration
@@ -50,7 +60,7 @@ or exceeds these minimum versions when using packages rather than source.
 
   1. Open vSwitch service, ML2 plug-in, Open vSwitch agent, L3 agent,
      DHCP agent, metadata agent, and any dependencies including the
-     'ipset' and 'conntrack' utilities.
+     `ipset` and `conntrack` utilities.
 
 1. Compute nodes
 
@@ -61,8 +71,8 @@ or exceeds these minimum versions when using packages rather than source.
      appropriate configuration to use neutron in the nova.conf file.
 
   1. Open vSwitch service, ML2 plug-in, Open vSwitch agent, L3 agent,
-     metadata agent, and any dependencies including the 'ipset' and
-     'conntrack' utilities.
+     metadata agent, and any dependencies including the `ipset` and
+     `conntrack` utilities.
 
 ![Neutron DVR Scenario - Service Layout](../common/images/networkguide-neutron-dvr-services.png "Neutron DVR Scenario - Service Layout")
 
@@ -72,33 +82,35 @@ or exceeds these minimum versions when using packages rather than source.
 
 The general DVR architecture augments the legacy architecture by
 providing direct access to the external network on compute nodes.
-Tenant and external network routing moves to the compute nodes to
-eliminate single point of failure and performance issues. However,
-the network node still provides SNAT services for any instances
-without a floating IP address.
+Routing among tenant and external networks resides completely on
+the compute nodes to eliminate single point of failure and performance
+issues with a network node. However, instances without a floating IP
+address still use the network node for SNAT services.
 
 ![Neutron DVR Scenario - Architecture Overview](../common/images/networkguide-neutron-dvr-general.png "Neutron DVR Scenario - Architecture Overview")
 
-Similar to the legacy architecture, the network node runs single
-instances of the L3 agent, DHCP agent, and metadata agent. DVR can
-coexist with multiple DHCP agents. However, DHCP agents cannot run
-on compute nodes. The L3 agent manages a second *snat* namespace
-that provides SNAT services for any instances without a floating IP
-address. For instances using tenant networks on distributed routers,
-the *qrouter* namespace only handles metadata operations. For
-instances using tenant networks on legacy routers, the *qrouter*
-namespace performs SNAT and handles metadata operations.
+Similar to the legacy architecture, the network node runs the L3
+agent, DHCP agent, and metadata agent. DVR can coexist with multiple
+DHCP agents. However, DHCP agents cannot run on compute nodes. In
+addition to legacy `qrouter` namespaces, the L3 agent manages `snat`
+namespaces that perform SNAT for any instances without a floating IP
+address using tenant networks on distributed routers. For instances
+using tenant networks on legacy routers, the `qrouter` namespaces
+perform SNAT and handle metadata operations. The metadata agent
+handles metadata operations for instances using tenant networks on
+legacy routers.
 
 ![Neutron DVR Scenario - Network Node Overview](../common/images/networkguide-neutron-dvr-network1.png "Neutron DVR Scenario - Network Node Overview")
 
-Contrary to the legacy architecture, the compute node runs single
-instances of the L3 agent and metadata agent. The L3 agent manages
-distributed routers that handle network traffic among tenant networks
-on the same distributed router and external network traffic for
-instances with a floating IP address. The L3 agent manages a second
-*fip* namespace that handles floating IP addresses. The metadata agent
-handles metadata operations for instances on networks using a
-distributed router.
+Contrary to the legacy architecture, the compute node runs the L3
+agent and metadata agent. The L3 agent manages `qrouter` namespaces
+that route network traffic among tenant networks on the same
+distributed router and external network traffic for instances with
+a floating IP address. The L3 agent also manages `fip` namespaces
+that perform DNAT and SNAT for instances with a floating IP address
+using tenant networks on distributed routers. The metadata agent
+handles metadata operations for instances using tenant networks
+on distributed routers.
 
 ![Neutron DVR Scenario - Compute Node Overview](../common/images/networkguide-neutron-dvr-compute1.png "Neutron DVR Scenario - Compute Node Overview")
 
@@ -106,66 +118,146 @@ distributed router.
 
 The network node contains the following components:
 
-1. DHCP agent managing the *qdhcp* namespace.
+1. Open vSwitch agent managing virtual switches, connectivity among
+   them, and interaction via virtual ports with other network components
+   such as namespaces, Linux bridges, and underlying interfaces.
 
-  1. The *dhcp* namespace provides DHCP services for instances on
-     networks using legacy and distributed routers.
+1. DHCP agent managing the `qdhcp` namespaces.
 
-1. L3 agent managing the *qrouter* and *snat* namespaces.
+  1. The `dhcp` namespaces provide DHCP services for instances using 
+     tenant networks on legacy and distributed routers.
 
-  1. For instances on networks using distributed routers, the
-     *qrouter* namespace serves no purpose.
+1. L3 agent managing the `qrouter` and `snat` namespaces.
 
-  1. For instances on networks using legacy routers, the *qrouter*
-     namespace performs SNAT between tenant and external networks.
-     It also routes metadata traffic between instances and the
-     metadata agent.
+  1. For instances using tenant networks on distributed routers, the
+     `qrouter` namespaces serve no purpose.
 
-  1. For instances on networks using distributed routers, the
-     *snat* namespace performs SNAT between tenant and external
+  1. For instances using tenant networks using legacy routers, the
+     `qrouter` namespaces perform SNAT between tenant and external
+     networks. They also route metadata traffic between instances using
+     tenant networks on legacy routers and the metadata agent.
+
+  1. For instances using tenant networks on distributed routers, the
+     `snat` namespaces perform SNAT between tenant and external
      networks for instances without a floating IP address.
 
 1. Metadata agent handling metadata operations.
 
   1. The metadata agent handles metadata operations for instances
-     on networks using legacy routers.
+     using tenant networks using legacy routers.
 
 ![Neutron DVR Scenario - Network Node Components](../common/images/networkguide-neutron-dvr-network2.png "Neutron DVR Scenario - Network Node Components")
 
 The compute nodes contain the following components:
 
-1. L3 agent managing the *qrouter* and *fip* namespaces.
+1. Open vSwitch agent managing virtual switches, connectivity among
+   them, and interaction via virtual ports with other network components
+   such as namespaces, Linux bridges, and underlying interfaces.
 
-  1. For instances on networks using distributed routers, the *qrouter*
-     namespace routes east-west network traffic among tenant networks on
-     the same distributed router regardless of fixed or floating IP
-     addresses.
+1. L3 agent managing the `qrouter` and `fip` namespaces.
 
-  1. For instances on networks using distributed routers, the *fip*
-     namespace performs DNAT and SNAT between tenant and external
+  1. For instances using tenant networks on distributed routers, the
+     `qrouter` namespaces route *east-west* network traffic among tenant
+     networks the same distributed router regardless of fixed or floating
+     IP addresses.
+
+  1. For instances using tenant networks on distributed routers, the
+     `fip` namespaces perform DNAT and SNAT between tenant and external
      networks.
+
+1. Metadata agent handling metadata operations.
+
+  1. The metadata agent handles metadata operations for instances
+     using tenant networks on distributed routers.
+
+1. Linux bridges handling security groups.
+
+  1. Due to limitations with Open vSwitch and *iptables*, the Networking
+     service uses a Linux bridge to manage security groups for
+     instances.
 
 ![Neutron DVR Scenario - Compute Node Components](../common/images/networkguide-neutron-dvr-compute2.png "Neutron DVR Scenario - Compute Node Components")
 
 ### Network traffic flows
 
-For instances without a floating IP address on networks using distributed
-routers, the network node routes north-south network traffic between
-tenant and external networks.
+For instances without a floating IP address using tenant networks on
+distributed routers, the network node routes *north-south* network
+traffic between tenant and external networks.
+
+Note: The term *north-south* generally defines network traffic that
+travels between tenant and external networks (typically the Internet).
+
+General flow of instance network traffic from an instance to the
+external network:
+
+1. Instance network traffic with a destination outside of the tenant
+   network egresses the instance (1) `tap` interface and travels to
+   the Linux bridge `qbr` via `veth` pair.
+
+1. Security group rules (2) on the Linux bridge `qbr` handle state tracking
+   for the instance network traffic.
+
+1. The instance network traffic egresses port `qvb` on the Linux bridge
+   `qbr` and travels to the Open vSwitch integration bridge `br-int`
+   via `veth` pair.
+
+1. The instance network traffic egresses the Open vSwitch integration
+   bridge `br-int` and travels to the Open vSwitch tunnel bridge
+   `br-tun` that wraps it in a VXLAN or GRE tunnel.
+
+1. The VXLAN or GRE tunnel egresses the physical tunnel interface on the
+   compute node and travels to the physical tunnel interface on the network
+   node.
+
+1. The Open vSwitch tunnel bridge `br-tun` unwraps the instance traffic
+   from the VXLAN or GRE tunnel.
+
+1. The instance network traffic egresses the Open vSwitch tunnel bridge
+   `br-tun` and travels to the Open vSwitch integration bridge `br-int`.
+
+1. The instance network traffic egresses port `sg` on the Open vSwitch
+   tunnel bridge `br-tun` and travels to the `sg` interface in the `snat`
+   namespace (3). The `sg` interface contains the tenant network gateway
+   IP address. In this example, 192.168.1.1/24.
+
+1. The *iptables* service (4) performs SNAT on the instance network traffic
+   using the `qg` interface in the `snat` namespace (5) as the source IP
+   address.
+
+1. The translated instance network traffic egresses the `qg` interface in
+   the `snat` namespace and travels to the Open vSwitch external bridge
+   `br-ex`.
+
+1. The translated instance network traffic egresses the Open vSwitch
+   external bridge `br-ex` and travels to the external network via
+   the physical external interface on the network node.
 
 ![Neutron DVR Scenario - Network Traffic Flow - North/South with Fixed IP Address](../common/images/networkguide-neutron-dvr-flowns1.png "Neutron DVR Scenario - Network Traffic Flow - North/South with Fixed IP Address")
 
-For instances with a floating IP address on networks using distributed
-routers, the compute node containing the instance routes north-south
-network traffic between tenant and external networks. This traffic flow
-avoids the network node.
+For instances with a floating IP address using tenant networks on
+distributed routers, the compute node containing the instance routes
+*north-south* network traffic between tenant and external networks.
+This traffic flow avoids the network node. For simplicity, the
+following steps only cover the flow of instance network from the
+external network to an instance.
+
+General flow of instance network traffic from the external network to
+an instance:
+
+1. External network traffic travels to the Open vSwitch external bridge
+   `br-ex` via the physical external interface on the compute node.
+
+1. To be continued...
 
 ![Neutron DVR Scenario - Network Traffic Flow - North/South with Floating IP Address](../common/images/networkguide-neutron-dvr-flowns2.png "Neutron DVR Scenario - Network Traffic Flow - North/South with Floating IP Address")
 
-For instances with or without a floating IP address on networks using
-distributed routers, the compute nodes route network traffic among
-tenant networks on the same distributed virtual router. This traffic
-flow avoids the network node.
+For instances with or without a floating IP address using networks on
+distributed routers, the compute nodes route *east-west* network
+traffic among tenant networks on the same distributed virtual router.
+This traffic flow avoids the network node.
+
+Note: The term *east-west* generally defines network traffic that
+travels within a tenant network or between tenant networks.
 
 ![Neutron DVR Scenario - Network Traffic Flow - East/West](../common/images/networkguide-neutron-dvr-flowew1.png "Neutron DVR Scenario - Network Traffic Flow - East/West")
 
@@ -667,7 +759,7 @@ addresses.
     rtt min/avg/max/mdev = 0.357/0.451/0.504/0.055 ms
     ```
 
-  1. Test connectivity to the internet.
+  1. Test connectivity to the Internet.
 
     ```
     $ ping -c 4 openstack.org
