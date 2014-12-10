@@ -178,7 +178,9 @@ The compute nodes contain the following components:
 
 ![Neutron DVR Scenario - Compute Node Components](../common/images/networkguide-neutron-dvr-compute2.png "Neutron DVR Scenario - Compute Node Components")
 
-### Network traffic flows
+## Packet flow
+
+### Case 1: North-south for instances without a floating IP address
 
 For instances without a floating IP address using tenant networks on
 distributed routers, the network node routes *north-south* network
@@ -234,6 +236,8 @@ external network:
 
 ![Neutron DVR Scenario - Network Traffic Flow - North/South with Fixed IP Address](../common/images/networkguide-neutron-dvr-flowns1.png "Neutron DVR Scenario - Network Traffic Flow - North/South with Fixed IP Address")
 
+### Case 2: North-south for instances with a floating IP address
+
 For instances with a floating IP address using tenant networks on
 distributed routers, the compute node containing the instance routes
 *north-south* network traffic between tenant and external networks.
@@ -251,6 +255,8 @@ an instance:
 
 ![Neutron DVR Scenario - Network Traffic Flow - North/South with Floating IP Address](../common/images/networkguide-neutron-dvr-flowns2.png "Neutron DVR Scenario - Network Traffic Flow - North/South with Floating IP Address")
 
+### Case 3: East-west for instances with or without a floating IP address
+
 For instances with or without a floating IP address using networks on
 distributed routers, the compute nodes route *east-west* network
 traffic among tenant networks on the same distributed virtual router.
@@ -258,6 +264,99 @@ This traffic flow avoids the network node.
 
 Note: The term *east-west* generally defines network traffic that
 travels within a tenant network or between tenant networks.
+
+#### Example environment configuration
+
+Instance 1 resides on compute node 1 and uses tenant network 1. Instance
+2 resides on compute node 2 and uses tenant network 2. Both tenant networks
+reside on the same distributed router. Instance 1 sends a packet to
+instance 2.
+
+* Tenant network 1
+
+  * Network: 192.168.1.0/24
+
+  * Gateway: 192.168.1.1 with MAC address *G1*
+
+* Tenant network 2
+
+  * Network: 192.168.2.0/24
+
+  * Gateway: 192.168.2.1 with MAC address *G2*
+
+* Compute node 1
+
+  * Instance 1: 192.168.1.11 with MAC address *I1*
+
+  * DVR MAC address *D1*
+
+* Compute node 2
+
+  * Instance 2: 192.168.2.11 with MAC address *I2*
+
+  * DVR MAC address *D2*
+
+#### Packet flow
+
+The following steps involve compute node 1:
+
+1. The instance 1 `tap` interface (1) forwards the packet to the Linux
+   bridge `qbr` via `veth` pair. The packet contains destination MAC
+   address *G1* because the destination resides on another network.
+
+1. Security group rules (2) on the Linux bridge `qbr` handle state tracking
+   for the packet.
+
+1. The Linux bridge `qbr` forwards the packet to the Open vSwitch
+   integration bridge `br-int` via `veth` pair.
+
+1. The Open vSwitch integration bridge `br-int` forwards the packet to
+   the tenant network 1 interface in the `qrouter` namespace (3) via
+   `veth` pair.
+
+1. The `qrouter` namespace routes the packet to tenant network 2.
+
+1. The tenant network 2 interface in the `qrouter` namespace (4)
+   forwards the packet to the Open vSwitch integration bridge `br-int`
+   via `veth` pair.
+
+1. The Open vSwitch integration bridge `br-int` modifies the packet
+   to contain the internal tag for tenant network 2.
+
+1. The Open vSwitch integration bridge `br-int` forwards the packet to
+   the Open vSwitch tunnel bridge `br-tun`.
+
+1. The Open vSwitch tunnel bridge `br-tun` replaces the packet source
+   MAC address *I1* with *D1*.
+
+1. The Open vSwitch tunnel bridge `br-tun` wraps the packet in a VXLAN
+   or GRE tunnel that contains a tag for tenant network 2.
+
+1. The Open vSwitch tunnel bridge `br-tun` forwards the packet to
+   compute node 2 via the tunnel interface.
+
+The following steps involve compute node 2:
+
+1. The Open vSwitch tunnel bridge `br-tun` unwraps the packet.
+
+1. The Open vSwitch tunnel bridge `br-tun` forwards the packet to the
+   Open vSwitch integration bridge `br-int`.
+
+1. The Open vSwitch integration bridge `br-int` replaces the packet
+   source MAC address *D1* with *G2*.
+
+1. The Open vSwitch integration bridge `br-int` forwards the packet to
+   the Linux bridge `qbr` via `veth` pair.
+
+1. Security group rules (7) on the Linux bridge `qbr` handle state tracking
+   for the packet.
+
+1. Port `tap` on the Linux bridge `qbr` forwards the packet to the
+   instance 2 `tap` interface (8) via `veth` pair.
+
+Note: Packets arriving from compute node 1 do not traverse the tenant
+network interfaces (5,6) in the `qrouter` namespace on compute node 2.
+However, return traffic will traverse them.
 
 ![Neutron DVR Scenario - Network Traffic Flow - East/West](../common/images/networkguide-neutron-dvr-flowew1.png "Neutron DVR Scenario - Network Traffic Flow - East/West")
 
