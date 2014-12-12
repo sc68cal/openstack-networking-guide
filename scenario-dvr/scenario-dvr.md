@@ -1,10 +1,10 @@
 # Scenario: Basic implementation of DVR
 
 This scenario describes a basic implementation of the OpenStack
-Networking distributed virtual router (DVR) redundancy feature using
-the ML2 plug-in with Open vSwitch (OVS). The example configuration
-creates one flat external network and VXLAN tenant networks. However,
-DVR also supports VLAN external networks and GRE tenant networks with
+Networking distributed virtual router (DVR) feature using the ML2
+plug-in with Open vSwitch (OVS). The example configuration creates
+one flat external network and VXLAN tenant networks. However, DVR
+also supports VLAN external networks and GRE tenant networks with
 minor modifications to the example configuration.
 
 ## Requirements
@@ -189,50 +189,91 @@ traffic between tenant and external networks.
 Note: The term *north-south* generally defines network traffic that
 travels between tenant and external networks (typically the Internet).
 
-General flow of instance network traffic from an instance to the
-external network:
+#### Example environment configuration
 
-1. Instance network traffic with a destination outside of the tenant
-   network egresses the instance (1) `tap` interface and travels to
-   the Linux bridge `qbr` via `veth` pair.
+Instance 1 resides on compute node 1 and uses tenant network 1.
+The instance sends a packet to a host on the external network.
+
+* External network 1
+
+  * Network 203.0.113.0/24
+
+  * Gateway 203.0.113.1 with MAC address *EG1*
+
+  * Floating IP range 203.0.113.101 to 203.0.113.200
+
+  * Tenant network 1 router interface 203.0.113.101 *TR1*
+
+* Tenant network 1
+
+  * Network 192.168.1.0/24
+
+  * Gateway 192.168.1.1 with MAC address *TG1*
+
+* Compute node 1
+
+  * Instance 1 192.168.1.11 with MAC address *I1*
+
+  * DVR MAC address *D1*
+
+#### Packet flow
+
+The following steps involve compute node 1.
+
+1. The instance 1 `tap` interface (1) forwards the packet to the Linux
+   bridge `qbr`. The packet contains destination MAC address *TG1*
+   because the destination resides on another network.
 
 1. Security group rules (2) on the Linux bridge `qbr` handle state tracking
-   for the instance network traffic.
+   for the packet.
 
-1. The instance network traffic egresses port `qvb` on the Linux bridge
-   `qbr` and travels to the Open vSwitch integration bridge `br-int`
-   via `veth` pair.
+1. The Linux bridge `qbr` forwards the packet to the Open vSwitch
+   integration bridge `br-int`.
 
-1. The instance network traffic egresses the Open vSwitch integration
-   bridge `br-int` and travels to the Open vSwitch tunnel bridge
-   `br-tun` that wraps it in a VXLAN or GRE tunnel.
+1. The Open vSwitch integration bridge `br-int` modifies the packet to
+   contain the internal tag for tenant network 1.
 
-1. The VXLAN or GRE tunnel egresses the physical tunnel interface on the
-   compute node and travels to the physical tunnel interface on the network
-   node.
+1. The Open vSwitch integration bridge `br-int` forwards the packet to
+   the Open vSwitch tunnel bridge `br-tun`.
 
-1. The Open vSwitch tunnel bridge `br-tun` unwraps the instance traffic
-   from the VXLAN or GRE tunnel.
+1. The Open vSwitch tunnel bridge `br-tun` replaces the packet source
+   MAC address *I1* with *D1*.
 
-1. The instance network traffic egresses the Open vSwitch tunnel bridge
-   `br-tun` and travels to the Open vSwitch integration bridge `br-int`.
+1. The Open vSwitch tunnel bridge `br-tun` wraps the packet in a VXLAN
+   or GRE tunnel that contains a tag for tenant network 1.
 
-1. The instance network traffic egresses port `sg` on the Open vSwitch
-   tunnel bridge `br-tun` and travels to the `sg` interface in the `snat`
-   namespace (3). The `sg` interface contains the tenant network gateway
-   IP address. In this example, 192.168.1.1/24.
+1. The Open vSwitch tunnel bridge `br-tun` forwards the packet to the
+   network node via the tunnel interface.
 
-1. The *iptables* service (4) performs SNAT on the instance network traffic
-   using the `qg` interface in the `snat` namespace (5) as the source IP
-   address.
+The following steps involve the network node.
 
-1. The translated instance network traffic egresses the `qg` interface in
-   the `snat` namespace and travels to the Open vSwitch external bridge
-   `br-ex`.
+1. The tunnel interface forwards the packet to the Open vSwitch tunnel
+   bridge `br-tun`.
 
-1. The translated instance network traffic egresses the Open vSwitch
-   external bridge `br-ex` and travels to the external network via
-   the physical external interface on the network node.
+1. The Open vSwitch tunnel bridge `br-tun` unwraps the packet and adds
+   the internal tag for tenant network 1.
+
+1. The Open vSwitch tunnel bridge `br-tun` forwards the packet to the
+   Open vSwitch integration bridge `br-int`.
+
+1. The Open vSwitch integration bridge `br-int` replaces the packet
+   source MAC address *D1* with *TG1*.
+
+1. The Open vSwitch integration bridge `br-int` forwards the packet to
+   the `sg` interface (3) in the SNAT namespace `snat`. The `sg`
+   interface contains the tenant network gateway IP address *TG1*.
+
+1. The *iptables* service (4) performs SNAT on the packet using the `qg`
+   interface (5) as the source IP address. The `qg` interface contains
+   the tenant network 1 router interface IP address *TR1*.
+
+1. The `qg` interface forwards the packet to the Open vSwitch external
+   bridge `br-ex`.
+
+1. The Open vSwitch external bridge `br-ex` forwards the packet to the
+   external network via the external interface.
+
+Note: Return traffic follows similar steps in reverse.
 
 ![Neutron DVR Scenario - Network Traffic Flow - North/South with Fixed IP Address](../common/images/networkguide-neutron-dvr-flowns1.png "Neutron DVR Scenario - Network Traffic Flow - North/South with Fixed IP Address")
 
@@ -241,17 +282,116 @@ external network:
 For instances with a floating IP address using tenant networks on
 distributed routers, the compute node containing the instance routes
 *north-south* network traffic between tenant and external networks.
-This traffic flow avoids the network node. For simplicity, the
-following steps only cover the flow of instance network from the
-external network to an instance.
+This traffic flow avoids the network node. Given the complexity of
+this case, the following steps cover the flow of network traffic from
+the external network to an instance and from an instance to the
+external network.
 
-General flow of instance network traffic from the external network to
-an instance:
+#### Example environment configuration
 
-1. External network traffic travels to the Open vSwitch external bridge
-   `br-ex` via the physical external interface on the compute node.
+Instance 1 resides on compute node 1 and uses tenant network 1.
+Instance 1 sends a packet to a host on the external network.
 
-1. To be continued...
+* External network 1
+
+  * Network 203.0.113.0/24
+
+  * Gateway 203.0.113.1 with MAC address *EG1*
+
+  * Floating IP range 203.0.113.101 to 203.0.113.200
+
+  * Tenant network 1 router interface 203.0.113.101 *TR1*
+
+* Tenant network 1
+
+  * Network 192.168.1.0/24
+
+  * Gateway 192.168.1.1 with MAC address *TG1*
+
+* Compute node 1
+
+  * Instance 1 192.168.1.11 with MAC address *I1* and floating
+    IP address 203.0.113.102 *F1*
+
+  * DVR MAC address *D1*
+
+  * DVR internal IP addresses *DA1* and *DA2*
+
+#### Packet flow
+
+The following steps involve a packet inbound from the external network
+to an instance on compute node 1.
+
+1. The external interface forwards the packet to the Open vSwitch
+   external bridge `br-ex`. The packet contains destination IP
+   address *F1*.
+
+1. The Open vSwitch external bridge `br-ex` forwards the packet to the
+   `fg` interface (1) in the floating IP namespace `fip`. The `fg`
+   interface responds to any ARP requests for the instance floating IP
+   address *F1*.
+
+1. The floating IP namespace `fip` routes the packet (2) to the
+   distributed router namespace `qrouter` using DVR internal IP
+   addresses *DA1* and *DA2*. The `fpr` interface (3) contains DVR
+   internal IP address *DA1* and the `rfp` interface (4) contains DVR
+   internal IP address *DA2*.
+
+1. The floating IP namespace `fip` forwards the packet to the `rfp`
+   interface (5) in the distributed router namespace `qrouter`. The `rfp`
+   interface also contains the instance floating IP address *F1*.
+
+1. The *iptables* service (6) in the distributed router namespace `qrouter`
+   performs DNAT on the packet using the `qr` interface (7) as the source
+   IP address. The `qr` interface contains the tenant network gateway IP
+   address *TG1*.
+
+1. The distributed router namespace `qrouter` forwards the packet to the
+   Open vSwitch integration bridge `br-int`.
+
+1. The Open vSwitch integration bridge `br-int` forwards the packet to
+   the Linux bridge `qbr`.
+
+1. Security group rules (9) on the Linux bridge `qbr` handle firewalling
+   and state tracking for the packet.
+
+1. The Linux bridge `qbr` forwards the packet to the instance `tap`
+   interface (9).
+
+The following steps involve a packet outbound from an instance on
+compute node 1 to the external network.
+
+1. The instance 1 `tap` interface (9) forwards the packet to the Linux
+   bridge `qbr`. The packet contains destination MAC address *TG1*
+   because the destination resides on another network.
+
+1. Security group rules (8) on the Linux bridge `qbr` handle state tracking
+   for the packet.
+
+1. The Linux bridge `qbr` forwards the packet to the Open vSwitch
+   integration bridge `br-int`.
+
+1. The Open vSwitch integration bridge `br-int` forwards the packet to
+   the `qr` interface (7) in the distributed router namespace `qrouter`.
+   The `qr` interface contains the tenant network gateway IP address
+   *TG1*.
+
+1. The *iptables* service (6) performs SNAT on the packet using the `rfp`
+   interface (5) as the source IP address. The `rfp` interface contains
+   the instance floating IP address *F1*.
+
+1. The distributed router namespace `qrouter` (2) routes the packet
+   to the floating IP namespace `fip` using DVR internal IP addresses
+   *DA1* and *DA2*. The `rfp` interface (4) contains DVR internal
+   IP address *DA2* and the `fpr` interface (3) contains DVR internal
+   IP address *DA1*.
+
+1. The `fg` interface (1) in the floating IP namespace `fip` forwards the
+   packet to the Open vSwitch external bridge `br-ex`. The `fg` interface
+   contains the tenant router external IP address *TE1*.
+
+1. The Open vSwitch external bridge `br-ex` forwards the packet to the
+   external network via the external interface.
 
 ![Neutron DVR Scenario - Network Traffic Flow - North/South with Floating IP Address](../common/images/networkguide-neutron-dvr-flowns2.png "Neutron DVR Scenario - Network Traffic Flow - North/South with Floating IP Address")
 
@@ -274,51 +414,52 @@ instance 2.
 
 * Tenant network 1
 
-  * Network: 192.168.1.0/24
+  * Network 192.168.1.0/24
 
-  * Gateway: 192.168.1.1 with MAC address *G1*
+  * Gateway 192.168.1.1 with MAC address *TG1*
 
 * Tenant network 2
 
-  * Network: 192.168.2.0/24
+  * Network 192.168.2.0/24
 
-  * Gateway: 192.168.2.1 with MAC address *G2*
+  * Gateway 192.168.2.1 with MAC address *TG2*
 
 * Compute node 1
 
-  * Instance 1: 192.168.1.11 with MAC address *I1*
+  * Instance 1 192.168.1.11 with MAC address *I1*
 
   * DVR MAC address *D1*
 
 * Compute node 2
 
-  * Instance 2: 192.168.2.11 with MAC address *I2*
+  * Instance 2 192.168.2.11 with MAC address *I2*
 
   * DVR MAC address *D2*
 
 #### Packet flow
 
-The following steps involve compute node 1:
+The following steps involve compute node 1.
 
 1. The instance 1 `tap` interface (1) forwards the packet to the Linux
-   bridge `qbr` via `veth` pair. The packet contains destination MAC
-   address *G1* because the destination resides on another network.
+   bridge `qbr`. The packet contains destination MAC address *TG1*
+   because the destination resides on another network.
 
 1. Security group rules (2) on the Linux bridge `qbr` handle state tracking
    for the packet.
 
 1. The Linux bridge `qbr` forwards the packet to the Open vSwitch
-   integration bridge `br-int` via `veth` pair.
+   integration bridge `br-int`.
 
 1. The Open vSwitch integration bridge `br-int` forwards the packet to
-   the tenant network 1 interface in the `qrouter` namespace (3) via
-   `veth` pair.
+   the tenant network 1 interface (3) in the distributed router namespace
+   `qrouter`.
 
-1. The `qrouter` namespace routes the packet to tenant network 2.
+1. The distributed router namespace `qrouter` routes the packet to
+   tenant network 2.
 
-1. The tenant network 2 interface in the `qrouter` namespace (4)
-   forwards the packet to the Open vSwitch integration bridge `br-int`
-   via `veth` pair.
+1. The tenant network 2 interface (4) in the distributed router namespace
+   `qrouter` namespace forwards the packet to the Open vSwitch 
+   integration bridge `br-int`.
 
 1. The Open vSwitch integration bridge `br-int` modifies the packet
    to contain the internal tag for tenant network 2.
@@ -335,7 +476,10 @@ The following steps involve compute node 1:
 1. The Open vSwitch tunnel bridge `br-tun` forwards the packet to
    compute node 2 via the tunnel interface.
 
-The following steps involve compute node 2:
+The following steps involve compute node 2.
+
+1. The tunnel interface forwards the packet to the Open vSwitch tunnel
+   bridge `br-tun`.
 
 1. The Open vSwitch tunnel bridge `br-tun` unwraps the packet.
 
@@ -343,20 +487,20 @@ The following steps involve compute node 2:
    Open vSwitch integration bridge `br-int`.
 
 1. The Open vSwitch integration bridge `br-int` replaces the packet
-   source MAC address *D1* with *G2*.
+   source MAC address *D1* with *TG2*.
 
 1. The Open vSwitch integration bridge `br-int` forwards the packet to
-   the Linux bridge `qbr` via `veth` pair.
+   the Linux bridge `qbr`.
 
-1. Security group rules (7) on the Linux bridge `qbr` handle state tracking
-   for the packet.
+1. Security group rules (7) on the Linux bridge `qbr` handle firewalling
+   and state tracking for the packet.
 
-1. Port `tap` on the Linux bridge `qbr` forwards the packet to the
-   instance 2 `tap` interface (8) via `veth` pair.
+1. The Linux bridge `qbr` forwards the packet to the instance 2 `tap`
+   interface (8).
 
 Note: Packets arriving from compute node 1 do not traverse the tenant
 network interfaces (5,6) in the `qrouter` namespace on compute node 2.
-However, return traffic will traverse them.
+However, return traffic traverses them.
 
 ![Neutron DVR Scenario - Network Traffic Flow - East/West](../common/images/networkguide-neutron-dvr-flowew1.png "Neutron DVR Scenario - Network Traffic Flow - East/West")
 
