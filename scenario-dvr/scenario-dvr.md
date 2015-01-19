@@ -90,27 +90,16 @@ address still use the network node for SNAT services.
 ![Neutron DVR Scenario - Architecture Overview](../common/images/networkguide-neutron-dvr-general.png "Neutron DVR Scenario - Architecture Overview")
 
 Similar to the legacy architecture, the network node runs the L3
-agent, DHCP agent, and metadata agent. DVR can coexist with multiple
-DHCP agents. However, DHCP agents cannot run on compute nodes. In
-addition to legacy `qrouter` namespaces, the L3 agent manages `snat`
-namespaces that perform SNAT for any instances without a floating IP
-address using tenant networks on distributed routers. For instances
-using tenant networks on legacy routers, the `qrouter` namespaces
-perform SNAT and handle metadata operations. The metadata agent
-handles metadata operations for instances using tenant networks on
-legacy routers.
+agent, DHCP agent, and metadata agent. The L3 agent manages legacy
+routers. DVR can coexist with multiple DHCP agents. However, they
+cannot run on compute nodes.
 
 ![Neutron DVR Scenario - Network Node Overview](../common/images/networkguide-neutron-dvr-network1.png "Neutron DVR Scenario - Network Node Overview")
 
 Contrary to the legacy architecture, the compute node runs the L3
-agent and metadata agent. The L3 agent manages `qrouter` namespaces
-that route network traffic among tenant networks on the same
-distributed router and external network traffic for instances with
-a floating IP address. The L3 agent also manages `fip` namespaces
-that perform DNAT and SNAT for instances with a floating IP address
-using tenant networks on distributed routers. The metadata agent
-handles metadata operations for instances using tenant networks
-on distributed routers.
+agent and metadata agent. The L3 agent manages distributed routers.
+The metadata agent handles metadata operations for instances using
+tenant networks on distributed routers.
 
 ![Neutron DVR Scenario - Compute Node Overview](../common/images/networkguide-neutron-dvr-compute1.png "Neutron DVR Scenario - Compute Node Overview")
 
@@ -158,12 +147,13 @@ The compute nodes contain the following components:
 
   1. For instances using tenant networks on distributed routers, the
      `qrouter` namespaces route *east-west* network traffic among tenant
-     networks the same distributed router regardless of fixed or floating
-     IP addresses.
+     networks on the same distributed router regardless of fixed or
+     floating IP addresses. They also perform SNAT and DNAT for instances
+     with a floating IP address.
 
   1. For instances using tenant networks on distributed routers, the
-     `fip` namespaces perform DNAT and SNAT between tenant and external
-     networks.
+     `fip` namespaces route *north-south* network traffic among tenant
+     and external networks for instances with a floating IP address.
 
 1. Metadata agent handling metadata operations.
 
@@ -204,6 +194,8 @@ The instance sends a packet to a host on the external network.
 
   * Tenant network 1 router interface 203.0.113.101 *TR1*
 
+  * Tenant network 1 SNAT interface 192.168.1.2 with MAC address *TN1*
+
 * Tenant network 1
 
   * Network 192.168.1.0/24
@@ -233,8 +225,17 @@ The following steps involve compute node 1.
 1. The Open vSwitch integration bridge `br-int` modifies the packet to
    contain the internal tag for tenant network 1.
 
-1. The Open vSwitch integration bridge `br-int` forwards the packet to
-   the Open vSwitch tunnel bridge `br-tun`.
+1. The Open vSwitch integration bridge `br-int` forwards the packet (3)
+   to the tenant network 1 gateway *TG1* interface `qr` in the distributed
+   router namespace `qrouter`.
+
+1. The distributed router `qrouter` namespace resolves the tenant network 1
+   SNAT interface MAC address *TN1* on the `sg` interface (4) in the SNAT
+   namespace `snat` and forwards the packet to the Open vSwitch integration
+   bridge `br-int`.
+
+1. The Open vSwitch integration bridge `br-int` forwards the packet to the
+   Open vSwitch tunnel bridge `br-tun`.
 
 1. The Open vSwitch tunnel bridge `br-tun` replaces the packet source
    MAC address *I1* with *D1*.
@@ -260,12 +261,10 @@ The following steps involve the network node.
    source MAC address *D1* with *TG1*.
 
 1. The Open vSwitch integration bridge `br-int` forwards the packet to
-   the `sg` interface (3) in the SNAT namespace `snat`. The `sg`
-   interface contains the tenant network gateway IP address *TG1*.
+   the `sg` interface (4) in the SNAT namespace `snat`.
 
-1. The *iptables* service (4) performs SNAT on the packet using the `qg`
-   interface (5) as the source IP address. The `qg` interface contains
-   the tenant network 1 router interface IP address *TR1*.
+1. The *iptables* service (5) performs SNAT on the packet using the tenant
+   network 1 router interface IP address *TR1* on the `qg` interface (6).
 
 1. The `qg` interface forwards the packet to the Open vSwitch external
    bridge `br-ex`.
@@ -342,9 +341,8 @@ to an instance on compute node 1.
    interface also contains the instance floating IP address *F1*.
 
 1. The *iptables* service (6) in the distributed router namespace `qrouter`
-   performs DNAT on the packet using the `qr` interface (7) as the source
-   IP address. The `qr` interface contains the tenant network gateway IP
-   address *TG1*.
+   performs DNAT on the packet using the destination IP address. The `qr`
+   interface (7) contains the tenant network gateway IP address *TG1*.
 
 1. The distributed router namespace `qrouter` forwards the packet to the
    Open vSwitch integration bridge `br-int`.
@@ -513,7 +511,7 @@ other nodes.
 
 1. Configure base options.
 
-   1. Edit the /etc/neutron/neutron.conf file.
+  1. Edit the /etc/neutron/neutron.conf file.
 
     ```
     [DEFAULT]
@@ -534,9 +532,12 @@ other nodes.
     nova_admin_auth_url = http://controller:35357/v2.0
     ```
 
-  Note: Replace NOVA_ADMIN_USERNAME, NOVA_ADMIN_TENANT_ID, and
-  NOVA_ADMIN_PASSWORD with suitable values for your environment.
+    Note: Configuring the `router_distributed = True` option creates
+    distributed routers by default and also allows non-privileged users
+    to create them.
 
+    Note: Replace NOVA_ADMIN_USERNAME, NOVA_ADMIN_TENANT_ID, and
+    NOVA_ADMIN_PASSWORD with suitable values for your environment.
 
 1. Configure the ML2 plug-in.
 
@@ -554,8 +555,8 @@ other nodes.
 
     [securitygroup]
     enable_security_group = True
-    firewall_driver = neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver
     enable_ipset = True
+    firewall_driver = neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver
     ```
 
 1. Start the following services:
@@ -580,6 +581,10 @@ instances without a floating IP address.
     allow_overlapping_ips = True
     allow_automatic_l3agent_failover = True
     ```
+
+    Note: Configuring the `router_distributed = True` option creates
+    distributed routers by default and also allows non-privileged users
+    to create them.
 
 1. Configure the ML2 plug-in.
 
@@ -703,6 +708,10 @@ addresses.
     allow_overlapping_ips = True
     ```
 
+    Note: Configuring the `router_distributed = True` option creates
+    distributed routers by default and also allows non-privileged users
+    to create them.
+
 1. Configure the ML2 plug-in.
 
   1. Edit the /etc/neutron/plugins/ml2/ml2_conf.ini file.
@@ -812,7 +821,7 @@ addresses.
 1. Create the external network.
 
   ```
-  $ neutron net-create ext-net --shared --router:external True \
+  $ neutron net-create ext-net --router:external True \
     --provider:physical_network external --provider:network_type flat
   Created a new network:
   +---------------------------+--------------------------------------+
@@ -825,7 +834,7 @@ addresses.
   | provider:physical_network | external                             |
   | provider:segmentation_id  |                                      |
   | router:external           | True                                 |
-  | shared                    | True                                 |
+  | shared                    | False                                |
   | status                    | ACTIVE                               |
   | subnets                   |                                      |
   | tenant_id                 | 54cd044c64d5408b83f843d63624e0d8     |
@@ -905,9 +914,7 @@ addresses.
   +-------------------+------------------------------------------------------+
   ```
 
-1. Create a distributed virtual router. Configuring the
-   `router_distributed = True` option in the /etc/neutron/neutron.conf
-   file creates distributed routers by default.
+1. Create a distributed virtual router.
 
   ```
   $ neutron router-create demo-router
@@ -955,6 +962,8 @@ addresses.
   qrouter-4d7928a0-4a3c-4b99-b01b-97da2f97e279
   qdhcp-353f5937-a2d3-41ba-8225-fa1af2538141
   ```
+
+  Note: Some namespaces might not exist until launching an instance.
 
 1. On the controller node, ping the tenant router gateway IP address,
    typically the lowest IP address in the external network subnet
