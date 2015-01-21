@@ -28,6 +28,10 @@ bridge.
 
 ![Neutron Legacy OVS Scenario - Network Layout](../common/images/networkguide-neutron-legacy-networks.png "Neutron Legacy OVS Scenario - Network Layout")
 
+Note: For VLAN external and tenant networks, the network infrastructure
+must support VLAN tagging. For best performance with VXLAN and GRE
+tenant networks, the network infrastructure should support jumbo frames.
+
 **Warning: Proper operation of VLAN requires kernel 3.13 or newer. In
 general, only Ubuntu 14.04, Fedora 20, and Fedora 21 meet or exceed this
 minimum version requirement when using packages rather than source.**
