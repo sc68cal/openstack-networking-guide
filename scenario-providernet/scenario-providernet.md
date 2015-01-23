@@ -47,13 +47,21 @@ Networking service in a future deployment.
 
 # Architecture
 
-TODO
+The network architecture for a provider networking from the OpenStack
+perspective is fairly simple since the OpenStack cluster is being
+"plugged in" to a provisioned and configured network that includes L2
+and L3 connectivity. In a provider VLAN configuration, the hardware
+switch that the OpenStack cluster is connected to already has
+provisioned VLANs for the management/API network and public
+Internet.
 
 
 # Packet Flow
 
-TODO
-
-
-
-
+The flow of packets in a provider network scenario only contains
+complexity inside the compute node's OVS networking. Neutron allocates
+internal VLAN tags for each Neutron Network and provides a mapping
+between the internal VLAN tag used for a Neutron network, and then
+inserts rules in the Open vSwitch switching infrastructure to rewrite
+the internal VLAN tag back to the VLAN tag that is allocated on the
+hardware switch, as packets cross the br-ex device.
