@@ -18,11 +18,13 @@ bridge.
 
 1. One network node with four network interfaces: management, tenant tunnel
    networks, tenant VLAN networks, and external (typically the Internet).
-   The Open vSwitch bridge `br-ex` must contain a port on the external
-   interface.
+   The Open vSwitch bridge `br-vlan` must contain a port on the VLAN
+   interface and Open vSwitch bridge `br-ex` must contain a port on the
+   external interface.
 
-1. At least one compute nodes with three network interfaces: management,
-   tenant tunnel networks, and tenant VLAN networks.
+1. At least one compute node with three network interfaces: management,
+   tenant tunnel networks, and tenant VLAN networks. The Open vSwitch
+   bridge `br-vlan` must contain a port on the VLAN interface.
 
 ![Neutron Legacy OVS Scenario - Hardware Requirements](../common/images/networkguide-neutron-legacy-hw.png "Neutron Legacy OVS Scenario - Hardware Requirements")
 
@@ -32,7 +34,7 @@ Note: For VLAN external and tenant networks, the network infrastructure
 must support VLAN tagging. For best performance with VXLAN and GRE
 tenant networks, the network infrastructure should support jumbo frames.
 
-**Warning: Proper operation of VLAN requires kernel 3.13 or newer. In
+**Warning: Proper operation of VXLAN requires kernel 3.13 or newer. In
 general, only Ubuntu 14.04, Fedora 20, and Fedora 21 meet or exceed this
 minimum version requirement when using packages rather than source.**
 
