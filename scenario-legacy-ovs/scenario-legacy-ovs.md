@@ -192,9 +192,11 @@ The following steps involve compute node 1.
 
 1. For VLAN tenant networks:
 
-  1. The Open vSwitch integration bridge `br-int` replaces the internal
-     tag with the actual VLAN tag of tenant network 1 and forwards it
-     to the Open vSwitch VLAN bridge `br-vlan`.
+  1. The Open vSwitch integration bridge `br-int` forwards the packet to
+     the Open vSwitch VLAN bridge `br-vlan`.
+
+  1. The Open vSwitch VLAN bridge `br-vlan` replaces the internal tag
+     with the actual VLAN tag of tenant network 1.
 
   1. The Open vSwitch VLAN bridge `br-vlan` forwards the packet to the
      network node via the VLAN interface.
@@ -326,11 +328,11 @@ The following steps involve the network node.
 
 1. For VLAN tenant networks:
 
-  1. The Open vSwitch integration bridge `br-int` replaces the internal tag
-     with the actual VLAN tag of tenant network 1.
+  1. The Open vSwitch integration bridge `br-int` forwards the packet to
+     the Open vSwitch VLAN bridge `br-vlan`.
 
-  1. The Open vSwitch integration bridge `br-int` forwards the packet to the
-     Open vSwitch VLAN bridge `br-vlan`.
+  1. The Open vSwitch VLAN bridge `br-vlan` replaces the internal tag
+     with the actual VLAN tag of tenant network 1.
 
   1. The Open vSwitch VLAN bridge `br-vlan` forwards the packet to the
      compute node via the VLAN interface.
@@ -356,8 +358,8 @@ The following steps involve compute node 1.
   1. The Open vSwitch VLAN bridge `br-vlan` forwards the packet to the
      Open vSwitch integration bridge `br-int`.
 
-  1. The Open vSwitch VLAN bridge `br-vlan` replaces the actual VLAN tag
-     of tenant network 1 with the internal tag.
+  1. The Open vSwitch integration bridge `br-int` replaces the actual
+     VLAN tag tenant network 1 with the internal tag.
 
 1. For VXLAN and GRE tenant networks:
 
@@ -437,9 +439,11 @@ The following steps involve compute node 1:
 
 1. For VLAN tenant networks:
 
-  1. The Open vSwitch integration bridge `br-int` replaces the internal
-     tag with the actual VLAN tag of tenant network 1 and forwards it
-     to the Open vSwitch VLAN bridge `br-vlan`.
+  1. The Open vSwitch integration bridge `br-int` forwards the packet to
+     the Open vSwitch VLAN bridge `br-vlan`.
+
+  1. The Open vSwitch VLAN bridge `br-vlan` replaces the internal tag
+     with the actual VLAN tag of tenant network 1.
 
   1. The Open vSwitch VLAN bridge `br-vlan` forwards the packet to the
      network node via the VLAN interface.
@@ -495,14 +499,14 @@ The following steps involve the network node.
 
 1. For VLAN tenant networks:
 
-  1. The Open vSwitch integration bridge `br-int` replaces the internal tag
+  1. The Open vSwitch integration bridge `br-int` forwards the packet to
+     the Open vSwitch VLAN bridge `br-vlan`.
+
+  1. The Open vSwitch VLAN bridge `br-vlan` replaces the internal tag
      with the actual VLAN tag of tenant network 2.
 
-  1. The Open vSwitch integration bridge `br-int` forwards the packet to the
-     Open vSwitch VLAN bridge `br-vlan`.
-
-  1. The Open vSwitch VLAN bridge `br-vlan` forwards the packet to
-     compute node 2 via the VLAN interface.
+  1. The Open vSwitch VLAN bridge `br-vlan` forwards the packet to compute
+     node 2 via the VLAN interface.
 
 1. For VXLAN and GRE networks:
 
@@ -525,8 +529,8 @@ The following steps involve compute node 2:
   1. The Open vSwitch VLAN bridge `br-vlan` forwards the packet to the
      Open vSwitch integration bridge `br-int`.
 
-  1. The Open vSwitch VLAN bridge `br-vlan` replaces the actual VLAN tag
-     of tenant network 2 with the internal tag.
+  1. The Open vSwitch integration bridge `br-int` replaces the actual
+     VLAN tag of tenant network 2 with the internal tag.
 
 1. For VXLAN and GRE tenant networks:
 
@@ -691,9 +695,12 @@ The network node provides DHCP and NAT services to all instances.
     verbose = True
     interface_driver = neutron.agent.linux.interface.OVSInterfaceDriver
     use_namespaces = True
-    external_network_bridge = br-ex
+    external_network_bridge =
     router_delete_namespaces = True
     ```
+
+    Note: The 'external_network_bridge' option intentionally contains
+    no value.
 
 1. Configure the DHCP agent.
 
@@ -795,7 +802,7 @@ for instances.
     [ovs]
     local_ip = TENANT_NETWORK_TUNNELS_INTERFACE_IP_ADDRESS
     enable_tunneling = True
-    bridge_mappings = vlan:br-vlan,external:br-ex
+    bridge_mappings = vlan:br-vlan
 
     [agent]
     l2population = True
