@@ -111,7 +111,7 @@ The network node contains the following components:
 
 1. DHCP agent managing the `qdhcp` namespaces.
 
-  1. The `dhcp` namespaces provide DHCP services for instances using 
+  1. The `qdhcp` namespaces provide DHCP services for instances using 
      tenant networks.
 
 1. L3 agent managing the `qrouter` namespaces.
@@ -611,15 +611,15 @@ other nodes.
 
     [securitygroup]
     enable_security_group = True
-    firewall_driver = neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver
     enable_ipset = True
+    firewall_driver = neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver
     ```
 
   Note: The first value in the 'tenant_network_types' option becomes the
   default tenant network type when a non-privileged user creates a network.
 
-  Note: Adjust the VLAN, GRE tunnel, and VXLAN tunnel ID ranges for your
-  environment.
+  Note: Adjust the VLAN tag, GRE tunnel ID, and VXLAN tunnel ID ranges for
+  your environment.
 
 1. Start the following services:
 
@@ -670,7 +670,7 @@ The network node provides DHCP and NAT services to all instances.
     firewall_driver = neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver
 
     [ovs]
-    local_ip = TENANT_NETWORK_TUNNELS_INTERFACE_IP_ADDRESS
+    local_ip = TENANT_TUNNEL_INTERFACE_IP_ADDRESS
     enable_tunneling = True
     bridge_mappings = vlan:br-vlan,external:br-ex
 
@@ -679,14 +679,14 @@ The network node provides DHCP and NAT services to all instances.
     tunnel_types = gre,vxlan
     ```
 
-  Note: Adjust the VLAN, GRE tunnel, and VXLAN tunnel ID ranges for your
-  environment.
-
   Note: The first value in the 'tenant_network_types' option becomes the
   default tenant network type when a non-privileged user creates a network.
 
-  Note: Replace TENANT_NETWORK_TUNNELS_INTERFACE_IP_ADDRESS with the IP
-  address of the tenant network tunnels interface.
+  Note: Adjust the VLAN tag, GRE tunnel ID, and VXLAN tunnel ID ranges for
+  your environment.
+
+  Note: Replace TENANT_TUNNEL_INTERFACE_IP_ADDRESS with the IP address
+  of the tenant tunnel network interface.
 
 1. Configure the L3 agent.
 
@@ -802,7 +802,7 @@ for instances.
     firewall_driver = neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver
 
     [ovs]
-    local_ip = TENANT_NETWORK_TUNNELS_INTERFACE_IP_ADDRESS
+    local_ip = TENANT_TUNNEL_INTERFACE_IP_ADDRESS
     enable_tunneling = True
     bridge_mappings = vlan:br-vlan
 
@@ -814,11 +814,11 @@ for instances.
   Note: The first value in the 'tenant_network_types' option becomes the
   default tenant network type when a non-privileged user creates a network.
 
-  Note: Adjust the VLAN, GRE tunnel, and VXLAN tunnel ID ranges for your
-  environment.
+  Note: Adjust the VLAN tag, GRE tunnel ID, and VXLAN tunnel ID ranges for
+  your environment.
 
-  Note: Replace TENANT_NETWORK_TUNNELS_INTERFACE_IP_ADDRESS with the IP
-  address of the tenant network tunnels interface.
+  Note: Replace TENANT_TUNNEL_INTERFACE_IP_ADDRESS with the IP address
+  of the tenant tunnel network interface.
 
 1. Start the following services:
 
@@ -833,16 +833,16 @@ for instances.
 
   ```
   $ neutron agent-list
-  +--------------------------------------+--------------------+-------------+-------+----------------+---------------------------+
-  | id                                   | agent_type         | host        | alive | admin_state_up | binary                    |
-  +--------------------------------------+--------------------+-------------+-------+----------------+---------------------------+
-  | 1eaf6079-41c8-4b5b-876f-73b02753ff57 | Open vSwitch agent | msk-os2cpu1 | :-)   | True           | neutron-openvswitch-agent |
-  | 511c27b3-8317-4e27-8a0f-b158e4fb8368 | Metadata agent     | msk-os2net1 | :-)   | True           | neutron-metadata-agent    |
-  | 7eae11ef-8157-4fd4-a352-bc841cf709f6 | Open vSwitch agent | msk-os2net1 | :-)   | True           | neutron-openvswitch-agent |
-  | a9110ce6-22cc-4f78-9b2e-57f83aac68a3 | Open vSwitch agent | msk-os2cpu2 | :-)   | True           | neutron-openvswitch-agent |
-  | c41f3200-8eda-43ab-8135-573e826776d9 | DHCP agent         | msk-os2net1 | :-)   | True           | neutron-dhcp-agent        |
-  | f897648e-7623-486c-8043-1b219eb2895a | L3 agent           | msk-os2net1 | :-)   | True           | neutron-l3-agent          |
-  +--------------------------------------+--------------------+-------------+-------+----------------+---------------------------+
+  +--------------------------------------+--------------------+----------+-------+----------------+---------------------------+
+  | id                                   | agent_type         | host     | alive | admin_state_up | binary                    |
+  +--------------------------------------+--------------------+----------+-------+----------------+---------------------------+
+  | 1eaf6079-41c8-4b5b-876f-73b02753ff57 | Open vSwitch agent | compute1 | :-)   | True           | neutron-openvswitch-agent |
+  | 511c27b3-8317-4e27-8a0f-b158e4fb8368 | Metadata agent     | network1 | :-)   | True           | neutron-metadata-agent    |
+  | 7eae11ef-8157-4fd4-a352-bc841cf709f6 | Open vSwitch agent | network1 | :-)   | True           | neutron-openvswitch-agent |
+  | a9110ce6-22cc-4f78-9b2e-57f83aac68a3 | Open vSwitch agent | compute2 | :-)   | True           | neutron-openvswitch-agent |
+  | c41f3200-8eda-43ab-8135-573e826776d9 | DHCP agent         | network1 | :-)   | True           | neutron-dhcp-agent        |
+  | f897648e-7623-486c-8043-1b219eb2895a | L3 agent           | network1 | :-)   | True           | neutron-l3-agent          |
+  +--------------------------------------+--------------------+----------+-------+----------------+---------------------------+
   ```
 
 ## Create initial networks
@@ -881,23 +881,23 @@ for instances.
     start=203.0.113.101,end=203.0.113.200 --disable-dhcp \
     --gateway 203.0.113.1 203.0.113.0/24
   Created a new subnet:
-  +-------------------+------------------------------------------------+
-  | Field             | Value                                          |
-  +-------------------+------------------------------------------------+
-  | allocation_pools  | {"start": "10.1.23.101", "end": "10.1.23.200"} |
-  | cidr              | 10.1.23.0/24                                   |
-  | dns_nameservers   |                                                |
-  | enable_dhcp       | False                                          |
-  | gateway_ip        | 10.1.23.1                                      |
-  | host_routes       |                                                |
-  | id                | cd9c15a1-0a66-4bbe-b1b4-4b7edd936f7a           |
-  | ip_version        | 4                                              |
-  | ipv6_address_mode |                                                |
-  | ipv6_ra_mode      |                                                |
-  | name              | ext-subnet                                     |
-  | network_id        | e5f9be2f-3332-4f2d-9f4d-7f87a5a7692e           |
-  | tenant_id         | 96393622940e47728b6dcdb2ef405f50               |
-  +-------------------+------------------------------------------------+
+  +-------------------+----------------------------------------------------+
+  | Field             | Value                                              |
+  +-------------------+----------------------------------------------------+
+  | allocation_pools  | {"start": "203.0.113.101", "end": "203.0.113.200"} |
+  | cidr              | 203.0.113.0/24                                     |
+  | dns_nameservers   |                                                    |
+  | enable_dhcp       | False                                              |
+  | gateway_ip        | 203.0.113.1                                        |
+  | host_routes       |                                                    |
+  | id                | cd9c15a1-0a66-4bbe-b1b4-4b7edd936f7a               |
+  | ip_version        | 4                                                  |
+  | ipv6_address_mode |                                                    |
+  | ipv6_ra_mode      |                                                    |
+  | name              | ext-subnet                                         |
+  | network_id        | e5f9be2f-3332-4f2d-9f4d-7f87a5a7692e               |
+  | tenant_id         | 96393622940e47728b6dcdb2ef405f50                   |
+  +-------------------+----------------------------------------------------+
   ```
 
 ### Tenant (VXLAN) network
@@ -1008,7 +1008,7 @@ create a VXLAN tenant network.
 ## Verify operation
 
 1. On the network node, verify creation of the 'qrouter' and 'qdhcp'
-   namespaces. The 'dhcp' namespace might not exist until launching
+   namespaces. The 'qdhcp' namespace might not exist until launching
    an instance.
 
   ```
