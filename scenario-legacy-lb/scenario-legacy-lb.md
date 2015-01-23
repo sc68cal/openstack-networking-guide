@@ -56,7 +56,7 @@ minimum version requirement when using packages rather than source.**
   1. Operational OpenStack Identity service with appropriate configuration
      in the neutron-server.conf file.
 
-  1. Open vSwitch service, ML2 plug-in, Open vSwitch agent, L3 agent,
+  1. Open vSwitch service, ML2 plug-in, Linux Bridge agent, L3 agent,
      DHCP agent, metadata agent, and any dependencies including the
      `ipset` utility.
 
@@ -68,10 +68,10 @@ minimum version requirement when using packages rather than source.**
   1. Operational OpenStack Compute controller/management service with
      appropriate configuration to use neutron in the nova.conf file.
 
-  1. Open vSwitch service, ML2 plug-in, Open vSwitch agent, and any
+  1. Open vSwitch service, ML2 plug-in, Linux Bridge agent, and any
      dependencies including the `ipset` utility.
 
-![Neutron Legacy OVS Scenario - Service Layout](../common/images/networkguide-neutron-legacy-ovs-services.png "Neutron Legacy OVS Scenario - Service Layout")
+![Neutron Legacy LB Scenario - Service Layout](../common/images/networkguide-neutron-legacy-lb-services.png "Neutron Legacy LB Scenario - Service Layout")
 
 ## Architecture
 
@@ -83,30 +83,31 @@ completely on the network node. Although more simple to deploy than
 other architectures, performing all functions on the network node
 creates a single point of failure and potential performance issues.
 Consider deploying DVR or L3 HA architectures in production environments
-to provide redundancy and increase performance.
+to provide redundancy and increase performance. However, the DVR and L3
+HA architectures require Open vSwitch.
 
-![Neutron Legacy OVS Scenario - Architecture Overview](../common/images/networkguide-neutron-legacy-general.png "Neutron Legacy OVS Scenario - Architecture Overview")
+![Neutron Legacy LB Scenario - Architecture Overview](../common/images/networkguide-neutron-legacy-general.png "Neutron Legacy LB Scenario - Architecture Overview")
 
-The network node runs the Open vSwitch agent, L3 agent, DHCP agent, and
+The network node runs the Linux Bridge agent, L3 agent, DHCP agent, and
 metadata agent.
 
-![Neutron Legacy OVS Scenario - Network Node Overview](../common/images/networkguide-neutron-legacy-ovs-network1.png "Neutron Legacy OVS Scenario - Network Node Overview")
+![Neutron Legacy LB Scenario - Network Node Overview](../common/images/networkguide-neutron-legacy-lb-network1.png "Neutron Legacy LB Scenario - Network Node Overview")
 
-The compute nodes run the Open vSwitch agent.
+The compute nodes run the Linux Bridge agent.
 
-![Neutron Legacy OVS Scenario - Compute Node Overview](../common/images/networkguide-neutron-legacy-ovs-compute1.png "Neutron Legacy OVS Scenario - Compute Node Overview")
+![Neutron Legacy LB Scenario - Compute Node Overview](../common/images/networkguide-neutron-legacy-lb-compute1.png "Neutron Legacy LB Scenario - Compute Node Overview")
 
 ### Components
 
 The network node contains the following components:
 
-1. Open vSwitch agent managing virtual switches, connectivity among
+1. Linux Bridge agent managing virtual switches, connectivity among
    them, and interaction via virtual ports with other network components
-   such as namespaces, Linux bridges, and underlying interfaces.
+   such as namespaces and underlying interfaces.
 
 1. DHCP agent managing the `qdhcp` namespaces.
 
-  1. The `dhcp` namespaces provide DHCP services for instances using 
+  1. The `qdhcp` namespaces provide DHCP services for instances using 
      tenant networks.
 
 1. L3 agent managing the `qrouter` namespaces.
@@ -119,21 +120,15 @@ The network node contains the following components:
 
   1. The metadata agent handles metadata operations for instances.
 
-![Neutron Legacy OVS Scenario - Network Node Components](../common/images/networkguide-neutron-legacy-ovs-network2.png "Neutron Legacy OVS Scenario - Network Node Components")
+![Neutron Legacy LB Scenario - Network Node Components](../common/images/networkguide-neutron-legacy-lb-network2.png "Neutron Legacy LB Scenario - Network Node Components")
 
 The compute nodes contain the following components:
 
-1. Open vSwitch agent managing virtual switches, connectivity among
+1. Linux Bridge agent managing virtual switches, connectivity among
    them, and interaction via virtual ports with other network components
-   such as namespaces, Linux bridges, and underlying interfaces.
+   such as namespaces, security groups, and underlying interfaces.
 
-1. Linux bridges handling security groups.
-
-  1. Due to limitations with Open vSwitch and *iptables*, the Networking
-     service uses a Linux bridge to manage security groups for
-     instances.
-
-![Neutron Legacy OVS Scenario - Compute Node Components](../common/images/networkguide-neutron-legacy-ovs-compute2.png "Neutron Legacy OVS Scenario - Compute Node Components")
+![Neutron Legacy LB Scenario - Compute Node Components](../common/images/networkguide-neutron-legacy-lb-compute2.png "Neutron Legacy LB Scenario - Compute Node Components")
 
 ## Packet flow
 
@@ -172,7 +167,7 @@ The instance sends a packet to a host on the external network.
 
 #### Packet flow
 
-The following steps involve compute node 1.
+The following steps involve compute node 1. FIXME
 
 1. The instance 1 `tap` interface (1) forwards the packet to the Linux
    bridge `qbr`. The packet contains destination MAC address *TG1*
@@ -196,7 +191,7 @@ The following steps involve compute node 1.
   1. The Open vSwitch VLAN bridge `br-vlan` forwards the packet to the
      network node via the VLAN interface.
 
-1. For VXLAN and GRE tenant networks:
+1. For VXLAN tenant networks:
 
   1. The Open vSwitch integration bridge `br-int` forwards the packet to
      the Open vSwitch tunnel bridge `br-tun`.
@@ -220,7 +215,7 @@ The following steps involve the network node.
   1. The Open vSwitch integration bridge `br-int` replaces the actual
      VLAN tag of tenant network 1 with the internal tag.
 
-1. For VXLAN and GRE tenant networks:
+1. For VXLAN tenant networks:
 
   1. The tunnel interface forwards the packet to the Open vSwitch tunnel
      bridge `br-tun`.
@@ -247,7 +242,7 @@ The following steps involve the network node.
   1. The Open vSwitch integration bridge `br-int` forwards the packet to
      the Open vSwitch external bridge `br-ex`.
 
-1. For VXLAN and GRE tenant networks:
+1. For VXLAN tenant networks:
 
   1. The router namespace `qrouter` forwards the packet to the Open vSwitch
      external bridge `br-ex` via the `qg` interface.
@@ -257,7 +252,7 @@ The following steps involve the network node.
 
 Note: Return traffic follows similar steps in reverse.
 
-![Neutron Legacy OVS Scenario - Network Traffic Flow - North/South with Fixed IP Address](../common/images/networkguide-neutron-legacy-ovs-flowns1.png "Neutron Legacy OVS Scenario - Network Traffic Flow - North/South with Fixed IP Address")
+![Neutron Legacy LB Scenario - Network Traffic Flow - North/South with Fixed IP Address](../common/images/networkguide-neutron-legacy-lb-flowns1.png "Neutron Legacy LB Scenario - Network Traffic Flow - North/South with Fixed IP Address")
 
 ### Case 2: North-south for instances with a floating IP address
 
@@ -292,7 +287,7 @@ The instance receives a packet from a host on the external network.
 
 #### Packet flow
 
-The following steps involve the network node.
+The following steps involve the network node. FIXME
 
 1. The external interface forwards the packet to the Open vSwitch external
    bridge `br-ex`.
@@ -306,7 +301,7 @@ The following steps involve the network node.
      interface (1) in the router namespace `qrouter`. The `qg` interface
      contains the instance 1 floating IP address *F1*.
 
-1. For VXLAN and GRE tenant networks:
+1. For VXLAN tenant networks:
 
   1. The Open vSwitch external bridge `br-ex` forwards the packet to the
      `qg` interface (1) in the router namespace `qrouter`.
@@ -332,7 +327,7 @@ The following steps involve the network node.
   1. The Open vSwitch VLAN bridge `br-vlan` forwards the packet to the
      compute node via the VLAN interface.
 
-1. For VXLAN and GRE networks:
+1. For VXLAN tenant networks:
 
   1. The Open vSwitch integration bridge `br-int` forwards the packet to
      the Open vSwitch tunnel bridge `br-tun`.
@@ -356,7 +351,7 @@ The following steps involve compute node 1.
   1. The Open vSwitch VLAN bridge `br-vlan` replaces the actual VLAN tag
      of tenant network 1 with the internal tag.
 
-1. For VXLAN and GRE tenant networks:
+1. For VXLAN tenant networks:
 
   1. The tunnel interface forwards the packet to the Open vSwitch tunnel
      bridge `br-tun`.
@@ -378,7 +373,7 @@ The following steps involve compute node 1.
 
 Note: Return traffic follows similar steps in reverse.
 
-![Neutron Legacy OVS Scenario - Network Traffic Flow - North/South with Floating IP Address](../common/images/networkguide-neutron-legacy-ovs-flowns2.png "Neutron Legacy OVS Scenario - Network Traffic Flow - North/South with Floating IP Address")
+![Neutron Legacy LB Scenario - Network Traffic Flow - North/South with Floating IP Address](../common/images/networkguide-neutron-legacy-lb-flowns2.png "Neutron Legacy LB Scenario - Network Traffic Flow - North/South with Floating IP Address")
 
 ### Case 3: East-west for instances with or without a floating IP address
 
@@ -417,7 +412,7 @@ reside on the same router. Instance 1 sends a packet to instance 2.
 
 #### Packet flow
 
-The following steps involve compute node 1:
+The following steps involve compute node 1: FIXME
 
 1. The instance 1 `tap` interface (1) forwards the packet to the Linux
    bridge `qbr`. The packet contains destination MAC address *TG1*
@@ -441,7 +436,7 @@ The following steps involve compute node 1:
   1. The Open vSwitch VLAN bridge `br-vlan` forwards the packet to the
      network node via the VLAN interface.
 
-1. For VXLAN and GRE tenant networks:
+1. For VXLAN tenant networks:
 
   1. The Open vSwitch integration bridge `br-int` forwards the packet to
      the Open vSwitch tunnel bridge `br-tun`.
@@ -465,7 +460,7 @@ The following steps involve the network node.
   1. The Open vSwitch integration bridge `br-int` replaces the actual
      VLAN tag of tenant network 1 with the internal tag.
 
-1. For VXLAN and GRE tenant networks:
+1. For VXLAN tenant networks:
 
   1. The tunnel interface forwards the packet to the Open vSwitch tunnel
      bridge `br-tun`.
@@ -501,7 +496,7 @@ The following steps involve the network node.
   1. The Open vSwitch VLAN bridge `br-vlan` forwards the packet to
      compute node 2 via the VLAN interface.
 
-1. For VXLAN and GRE networks:
+1. For VXLAN networks:
 
   1. The Open vSwitch integration bridge `br-int` forwards the packet to
      the Open vSwitch tunnel bridge `br-tun`.
@@ -525,7 +520,7 @@ The following steps involve compute node 2:
   1. The Open vSwitch VLAN bridge `br-vlan` replaces the actual VLAN tag
      of tenant network 2 with the internal tag.
 
-1. For VXLAN and GRE tenant networks:
+1. For VXLAN tenant networks:
 
   1. The tunnel interface forwards the packet to the Open vSwitch tunnel
      bridge `br-tun`.
@@ -547,7 +542,7 @@ The following steps involve compute node 2:
 
 Note: Return traffic follows similar steps in reverse.
 
-![Neutron Legacy OVS Scenario - Network Traffic Flow - East/West](../common/images/networkguide-neutron-legacy-ovs-flowew1.png "Neutron Legacy OVS Scenario - Network Traffic Flow - East/West")
+![Neutron Legacy LB Scenario - Network Traffic Flow - East/West](../common/images/networkguide-neutron-legacy-lb-flowew1.png "Neutron Legacy LB Scenario - Network Traffic Flow - East/West")
 
 ## Configuration
 
@@ -586,15 +581,15 @@ other nodes.
 
     ```
     [ml2]
-    type_drivers = flat,vlan,gre,vxlan
-    tenant_network_types = vlan,vxlan,gre
-    mechanism_drivers = openvswitch,l2population
+    type_drivers = flat,vlan,vxlan
+    tenant_network_types = vlan,vxlan
+    mechanism_drivers = linuxbridge,l2population
+
+    [ml2_type_flat]
+    flat_networks = external
 
     [ml2_type_vlan]
     network_vlan_ranges = vlan:1:1000
-
-    [ml2_type_gre]
-    tunnel_id_ranges = 1:1000
 
     [ml2_type_vxlan]
     vni_ranges = 1:1000
@@ -602,14 +597,14 @@ other nodes.
 
     [securitygroup]
     enable_security_group = True
-    firewall_driver = neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver
+    firewall_driver = neutron.agent.linux.iptables_firewall.IptablesFirewallDriver
     enable_ipset = True
     ```
 
   Note: The first value in the 'tenant_network_types' option becomes the
   default tenant network type when a non-privileged user creates a network.
 
-  Note: Adjust the VLAN, GRE tunnel, and VXLAN tunnel ID ranges for your
+  Note: Adjust the VLAN tag and VXLAN tunnel ID ranges for your
   environment.
 
 1. Start the following services:
@@ -638,18 +633,15 @@ The network node provides DHCP and NAT services to all instances.
 
     ```
     [ml2]
-    type_drivers = flat,vlan,gre,vxlan
-    tenant_network_types = vlan,vxlan,gre
-    mechanism_drivers = openvswitch,l2population
+    type_drivers = flat,vlan,vxlan
+    tenant_network_types = vlan,vxlan
+    mechanism_drivers = linuxbridge,l2population
 
     [ml2_type_flat]
     flat_networks = external
 
     [ml2_type_vlan]
     network_vlan_ranges = vlan:1:1000
-
-    [ml2_type_gre]
-    tunnel_id_ranges = 1:1000
 
     [ml2_type_vxlan]
     vni_ranges = 1:1000
@@ -658,26 +650,35 @@ The network node provides DHCP and NAT services to all instances.
     [securitygroup]
     enable_security_group = True
     enable_ipset = True
-    firewall_driver = neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver
+    firewall_driver = neutron.agent.linux.iptables_firewall.IptablesFirewallDriver
 
-    [ovs]
-    local_ip = TENANT_NETWORK_TUNNELS_INTERFACE_IP_ADDRESS
-    enable_tunneling = True
-    bridge_mappings = vlan:br-vlan,external:br-ex
+    [linux_bridge]
+    physical_interface_mappings = vxlan:TENANT_TUNNEL_INTERFACE,vlan:TENANT_VLAN_INTERFACE,external:EXTERNAL_NETWORK_INTERFACE
+
+    [vlans]
+    tenant_network_type = vlan
+    network_vlan_ranges = vlan:1:1000
+
+    [vxlan]
+    enable_vxlan = True
+    local_ip = TENANT_TUNNEL_INTERFACE_IP_ADDRESS
+    l2_population = True
 
     [agent]
-    l2population = True
-    tunnel_types = gre,vxlan
+    tunnel_types = vxlan
     ```
 
-  Note: Adjust the VLAN, GRE tunnel, and VXLAN tunnel ID ranges for your
+  Note: Adjust the VLAN tag and VXLAN tunnel ID ranges for your
   environment.
 
   Note: The first value in the 'tenant_network_types' option becomes the
   default tenant network type when a non-privileged user creates a network.
 
-  Note: Replace TENANT_NETWORK_TUNNELS_INTERFACE_IP_ADDRESS with the IP
-  address of the tenant network tunnels interface.
+  Note: Replace TENANT_TUNNEL_INTERFACE, TENANT_VLAN_INTERFACE, and
+  EXTERNAL_NETWORK_INTERFACE with the respective underlying network
+  interface names. For example, eth1, eth2, and eth3. Replace
+  TENANT_TUNNEL_INTERFACE_IP_ADDRESS with the IP address of the tenant
+  tunnel network interface.
 
 1. Configure the L3 agent.
 
@@ -686,9 +687,9 @@ The network node provides DHCP and NAT services to all instances.
     ```
     [DEFAULT]
     verbose = True
-    interface_driver = neutron.agent.linux.interface.OVSInterfaceDriver
+    interface_driver = neutron.agent.linux.interface.BridgeInterfaceDriver
     use_namespaces = True
-    external_network_bridge = br-ex
+    external_network_bridge =
     router_delete_namespaces = True
     ```
 
@@ -699,13 +700,13 @@ The network node provides DHCP and NAT services to all instances.
     ```
     [DEFAULT]
     verbose = True
-    interface_driver = neutron.agent.linux.interface.OVSInterfaceDriver
+    interface_driver = neutron.agent.linux.interface.BridgeInterfaceDriver
     dhcp_driver = neutron.agent.linux.dhcp.Dnsmasq
     use_namespaces = True
     dhcp_delete_namespaces = True
     ```
 
-  1. (Optional) Reduce MTU for VXLAN/GRE tenant networks.
+  1. (Optional) Reduce MTU for VXLAN tenant networks.
 
     1. Edit the /etc/neutron/dhcp_agent.ini file.
 
@@ -741,8 +742,7 @@ The network node provides DHCP and NAT services to all instances.
 
 1. Start the following services:
 
-  * Open vSwitch
-  * Open vSwitch agent
+  * Linux Bridge agent
   * L3 agent
   * DHCP agent
   * Metadata agent
@@ -770,15 +770,12 @@ for instances.
 
     ```
     [ml2]
-    type_drivers = flat,vlan,gre,vxlan
-    tenant_network_types = vlan,gre,vxlan
-    mechanism_drivers = openvswitch,l2population
+    type_drivers = flat,vlan,vxlan
+    tenant_network_types = vlan,vxlan
+    mechanism_drivers = linuxbridge,l2population
 
     [ml2_type_vlan]
     network_vlan_ranges = vlan:1:1000
-
-    [ml2_type_gre]
-    tunnel_id_ranges = 1:1000
 
     [ml2_type_vxlan]
     vni_ranges = 1:1000
@@ -787,31 +784,39 @@ for instances.
     [securitygroup]
     enable_security_group = True
     enable_ipset = True
-    firewall_driver = neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver
+    firewall_driver = neutron.agent.linux.iptables_firewall.IptablesFirewallDriver
 
-    [ovs]
-    local_ip = TENANT_NETWORK_TUNNELS_INTERFACE_IP_ADDRESS
-    enable_tunneling = True
-    bridge_mappings = vlan:br-vlan,external:br-ex
+    [linux_bridge]
+    physical_interface_mappings = vxlan:TENANT_TUNNEL_INTERFACE,vlan:TENANT_VLAN_INTERFACE
+
+    [vlans]
+    tenant_network_type = vlan
+    network_vlan_ranges = vlan:1:1000
+
+    [vxlan]
+    enable_vxlan = True
+    local_ip = TENANT_TUNNEL_INTERFACE_IP_ADDRESS
+    l2_population = True
 
     [agent]
-    l2population = True
-    tunnel_types = gre,vxlan
+    tunnel_types = vxlan
     ```
 
   Note: The first value in the 'tenant_network_types' option becomes the
   default tenant network type when a non-privileged user creates a network.
 
-  Note: Adjust the VLAN, GRE tunnel, and VXLAN tunnel ID ranges for your
+  Note: Adjust the VLAN tag and VXLAN tunnel ID ranges for your
   environment.
 
-  Note: Replace TENANT_NETWORK_TUNNELS_INTERFACE_IP_ADDRESS with the IP
-  address of the tenant network tunnels interface.
+  Note: Replace TENANT_TUNNEL_INTERFACE, TENANT_VLAN_INTERFACE, and
+  EXTERNAL_NETWORK_INTERFACE with the respective underlying network
+  interface names. For example, eth1 and eth2. Replace
+  TENANT_TUNNEL_INTERFACE_IP_ADDRESS with the IP address of the tenant
+  tunnel network interface.
 
 1. Start the following services:
 
-  * Open vSwitch
-  * Open vSwitch agent
+  * Linux Bridge agent
 
 ### Verify service operation
 
@@ -820,16 +825,16 @@ for instances.
 1. Verify presence and operation of the agents.
 
   ```
-  $ neutron agent-list
+  # neutron agent-list
   +--------------------------------------+--------------------+-------------+-------+----------------+---------------------------+
   | id                                   | agent_type         | host        | alive | admin_state_up | binary                    |
   +--------------------------------------+--------------------+-------------+-------+----------------+---------------------------+
-  | 1eaf6079-41c8-4b5b-876f-73b02753ff57 | Open vSwitch agent | msk-os2cpu1 | :-)   | True           | neutron-openvswitch-agent |
-  | 511c27b3-8317-4e27-8a0f-b158e4fb8368 | Metadata agent     | msk-os2net1 | :-)   | True           | neutron-metadata-agent    |
-  | 7eae11ef-8157-4fd4-a352-bc841cf709f6 | Open vSwitch agent | msk-os2net1 | :-)   | True           | neutron-openvswitch-agent |
-  | a9110ce6-22cc-4f78-9b2e-57f83aac68a3 | Open vSwitch agent | msk-os2cpu2 | :-)   | True           | neutron-openvswitch-agent |
-  | c41f3200-8eda-43ab-8135-573e826776d9 | DHCP agent         | msk-os2net1 | :-)   | True           | neutron-dhcp-agent        |
-  | f897648e-7623-486c-8043-1b219eb2895a | L3 agent           | msk-os2net1 | :-)   | True           | neutron-l3-agent          |
+  | 0146e482-f94a-4996-9e2a-f0cafe2575c5 | L3 agent           | network1    | :-)   | True           | neutron-l3-agent          |
+  | 0dd4af0d-aafd-4036-b240-db12cf2a1aa9 | Linux bridge agent | compute2    | :-)   | True           | neutron-linuxbridge-agent |
+  | 2f9e5434-575e-4079-bcca-5e559c0a5ba7 | Linux bridge agent | network1    | :-)   | True           | neutron-linuxbridge-agent |
+  | 4105fd85-7a8f-4956-b104-26a600670530 | Linux bridge agent | compute1    | :-)   | True           | neutron-linuxbridge-agent |
+  | 8c15992a-3abc-4b14-aebc-60065e5090e6 | Metadata agent     | network1    | :-)   | True           | neutron-metadata-agent    |
+  | aa2e8f3e-b53e-4fb9-8381-67dcad74e940 | DHCP agent         | network1    | :-)   | True           | neutron-dhcp-agent        |
   +--------------------------------------+--------------------+-------------+-------+----------------+---------------------------+
   ```
 
@@ -849,7 +854,7 @@ for instances.
   | Field                     | Value                                |
   +---------------------------+--------------------------------------+
   | admin_state_up            | True                                 |
-  | id                        | e5f9be2f-3332-4f2d-9f4d-7f87a5a7692e |
+  | id                        | d57703fd-5571-404c-abca-f59a13f3c507 |
   | name                      | ext-net                              |
   | provider:network_type     | flat                                 |
   | provider:physical_network | external                             |
@@ -858,7 +863,7 @@ for instances.
   | shared                    | False                                |
   | status                    | ACTIVE                               |
   | subnets                   |                                      |
-  | tenant_id                 | 96393622940e47728b6dcdb2ef405f50     |
+  | tenant_id                 | 897d7360ac3441209d00fbab5f0b5c8b     |
   +---------------------------+--------------------------------------+
   ```
 
@@ -869,31 +874,31 @@ for instances.
     start=203.0.113.101,end=203.0.113.200 --disable-dhcp \
     --gateway 203.0.113.1 203.0.113.0/24
   Created a new subnet:
-  +-------------------+------------------------------------------------+
-  | Field             | Value                                          |
-  +-------------------+------------------------------------------------+
-  | allocation_pools  | {"start": "10.1.23.101", "end": "10.1.23.200"} |
-  | cidr              | 10.1.23.0/24                                   |
-  | dns_nameservers   |                                                |
-  | enable_dhcp       | False                                          |
-  | gateway_ip        | 10.1.23.1                                      |
-  | host_routes       |                                                |
-  | id                | cd9c15a1-0a66-4bbe-b1b4-4b7edd936f7a           |
-  | ip_version        | 4                                              |
-  | ipv6_address_mode |                                                |
-  | ipv6_ra_mode      |                                                |
-  | name              | ext-subnet                                     |
-  | network_id        | e5f9be2f-3332-4f2d-9f4d-7f87a5a7692e           |
-  | tenant_id         | 96393622940e47728b6dcdb2ef405f50               |
-  +-------------------+------------------------------------------------+
+  +-------------------+----------------------------------------------------+
+  | Field             | Value                                              |
+  +-------------------+----------------------------------------------------+
+  | allocation_pools  | {"start": "203.1.113.101", "end": "203.0.113.200"} |
+  | cidr              | 201.0.113.0/24                                     |
+  | dns_nameservers   |                                                    |
+  | enable_dhcp       | False                                              |
+  | gateway_ip        | 203.0.113.1                                        |
+  | host_routes       |                                                    |
+  | id                | 020bb28d-0631-4af2-aa97-7374d1d33557               |
+  | ip_version        | 4                                                  |
+  | ipv6_address_mode |                                                    |
+  | ipv6_ra_mode      |                                                    |
+  | name              | ext-subnet                                         |
+  | network_id        | d57703fd-5571-404c-abca-f59a13f3c507               |
+  | tenant_id         | 897d7360ac3441209d00fbab5f0b5c8b                   |
+  +-------------------+----------------------------------------------------+
   ```
 
 ### Tenant (VXLAN) network
 
 Note: The example configuration contains 'vlan' as the first tenant network
 type. Only a privileged user can create other types of networks such as
-VXLAN or GRE. The following commands use the 'admin' tenant credentials to
-create a VXLAN tenant network.
+VXLAN. The following commands use the 'admin' tenant credentials to create
+a VXLAN tenant network.
 
 1. Obtain the 'demo' tenant ID.
 
@@ -904,7 +909,7 @@ create a VXLAN tenant network.
   +-------------+----------------------------------+
   | description |           Demo Tenant            |
   |   enabled   |               True               |
-  |      id     | 443cd1596b2e46d49965750771ebbfe1 |
+  |      id     | 8dbcb34c59a741b18e71c19073a47ed5 |
   |     name    |               demo               |
   +-------------+----------------------------------+
   ```
@@ -912,13 +917,13 @@ create a VXLAN tenant network.
 1. Create the tenant network.
 
   ```
-  $ neutron net-create demo-net --tenant-id 443cd1596b2e46d49965750771ebbfe1 --provider:network_type vxlan
+  $ neutron net-create demo-net --tenant-id 8dbcb34c59a741b18e71c19073a47ed5 --provider:network_type vxlan
   Created a new network:
   +---------------------------+--------------------------------------+
   | Field                     | Value                                |
   +---------------------------+--------------------------------------+
   | admin_state_up            | True                                 |
-  | id                        | 6e9c5324-68d1-47a8-98d5-8268db955475 |
+  | id                        | 3a0663f6-9d5d-415e-91f2-0f1bfefbe5ed |
   | name                      | demo-net                             |
   | provider:network_type     | vxlan                                |
   | provider:physical_network |                                      |
@@ -927,13 +932,13 @@ create a VXLAN tenant network.
   | shared                    | False                                |
   | status                    | ACTIVE                               |
   | subnets                   |                                      |
-  | tenant_id                 | 443cd1596b2e46d49965750771ebbfe1     |
+  | tenant_id                 | 8dbcb34c59a741b18e71c19073a47ed5     |
   +---------------------------+--------------------------------------+
   ```
 
   Note: The example configuration contains 'vlan' as the first tenant network
-  type. Only a privileged user can create a VXLAN or GRE networks, so this
-  command uses the 'admin' tenant credentials to create the tenant network.
+  type. Only a privileged user can create a VXLAN network, so this command
+  uses the 'admin' tenant credentials to create the tenant network.
 
 1. Source the regular tenant credentials.
 
@@ -951,13 +956,13 @@ create a VXLAN tenant network.
   | enable_dhcp       | True                                             |
   | gateway_ip        | 192.168.1.1                                      |
   | host_routes       |                                                  |
-  | id                | c7b42e58-a2f4-4d63-b199-d266504c03c9             |
+  | id                | 1d5ab804-8925-46b0-a7b4-e520dc247284             |
   | ip_version        | 4                                                |
   | ipv6_address_mode |                                                  |
   | ipv6_ra_mode      |                                                  |
   | name              | demo-subnet                                      |
-  | network_id        | 6e9c5324-68d1-47a8-98d5-8268db955475             |
-  | tenant_id         | 443cd1596b2e46d49965750771ebbfe1                 |
+  | network_id        | 3a0663f6-9d5d-415e-91f2-0f1bfefbe5ed             |
+  | tenant_id         | 8dbcb34c59a741b18e71c19073a47ed5                 |
   +-------------------+--------------------------------------------------+
   ```
 
@@ -965,17 +970,16 @@ create a VXLAN tenant network.
 
   ```
   $ neutron router-create demo-router
-  Created a new router:
   +-----------------------+--------------------------------------+
   | Field                 | Value                                |
   +-----------------------+--------------------------------------+
   | admin_state_up        | True                                 |
   | external_gateway_info |                                      |
-  | id                    | 474a5b1f-d64c-4db9-b3b2-8ae9bb1b5970 |
+  | id                    | 299b2363-d656-401d-a3a5-55b4378e7fbb |
   | name                  | demo-router                          |
   | routes                |                                      |
   | status                | ACTIVE                               |
-  | tenant_id             | 443cd1596b2e46d49965750771ebbfe1     |
+  | tenant_id             | 8dbcb34c59a741b18e71c19073a47ed5     |
   +-----------------------+--------------------------------------+
   ```
 
@@ -983,7 +987,7 @@ create a VXLAN tenant network.
 
   ```
   $ neutron router-interface-add demo-router demo-subnet
-  Added interface 0fa57069-29fd-4795-87b7-c123829137e9 to router demo-router.
+Added interface 4f819fd4-be4d-42ab-bd47-ba1b2cb39006 to router demo-router.
   ```
 
 1. Add a gateway to the external network on the router.
@@ -996,13 +1000,13 @@ create a VXLAN tenant network.
 ## Verify operation
 
 1. On the network node, verify creation of the 'qrouter' and 'qdhcp'
-   namespaces. The 'dhcp' namespace might not exist until launching
+   namespaces. The 'qdhcp' namespace might not exist until launching
    an instance.
 
   ```
   # ip netns
-  qrouter-4d7928a0-4a3c-4b99-b01b-97da2f97e279
-  qdhcp-353f5937-a2d3-41ba-8225-fa1af2538141
+  qdhcp-3a0663f6-9d5d-415e-91f2-0f1bfefbe5ed
+  qrouter-299b2363-d656-401d-a3a5-55b4378e7fbb
   ```
 
 1. On the controller node, ping the tenant router gateway IP address,
