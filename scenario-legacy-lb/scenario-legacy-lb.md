@@ -167,88 +167,83 @@ The instance sends a packet to a host on the external network.
 
 #### Packet flow
 
-The following steps involve compute node 1. FIXME
+Although the diagram shows both VXLAN and VLAN tenant networks, the packet
+flow only considers one active VXLAN tenant network. The unlabeled components
+in the diagram exist to enhance visualization of the architecture.
 
-1. The instance 1 `tap` interface (1) forwards the packet to the Linux
-   bridge `qbr`. The packet contains destination MAC address *TG1*
-   because the destination resides on another network.
-
-1. Security group rules (2) on the Linux bridge `qbr` handle state tracking
-   for the packet.
-
-1. The Linux bridge `qbr` forwards the packet to the Open vSwitch
-   integration bridge `br-int`.
-
-1. The Open vSwitch integration bridge `br-int` adds the internal tag for
-   tenant network 1.
-
-1. For VLAN tenant networks:
-
-  1. The Open vSwitch integration bridge `br-int` replaces the internal
-     tag with the actual VLAN tag of tenant network 1 and forwards it
-     to the Open vSwitch VLAN bridge `br-vlan`.
-
-  1. The Open vSwitch VLAN bridge `br-vlan` forwards the packet to the
-     network node via the VLAN interface.
+The following steps involve compute node 1.
 
 1. For VXLAN tenant networks:
 
-  1. The Open vSwitch integration bridge `br-int` forwards the packet to
-     the Open vSwitch tunnel bridge `br-tun`.
+  1. The instance 1 `tap` interface (1) forwards the packet to the tunnel
+     bridge `qbr`. The packet contains destination MAC address *TG1*
+     because the destination resides on another network.
 
-  1. The Open vSwitch tunnel bridge `br-tun` wraps the packet in a VXLAN
-     or GRE tunnel and adds a tag to identify tenant network 1.
+  1. Security group rules (2) on the tunnel bridge `qbr` handle state
+     tracking for the packet.
 
-  1. The Open vSwitch tunnel bridge `br-tun` forwards the packet to the
-     network node via the tunnel interface.
+  1. The tunnel bridge `qbr` forwards the packet to the logical tunnel
+     interface `vxlan-sid` (3) where *sid* contains the tenant network
+     segmentation ID.
+
+  1. The physical tunnel interface forwards the packet to the network
+     node.
+
+1. For VLAN tenant networks:
+
+  1. The instance 1 `tap` interface forwards the packet to the VLAN
+     bridge `qbr`. The packet contains destination MAC address *TG1*
+     because the destination resides on another network.
+
+  1. Security group rules on the VLAN bridge `qbr` handle state tracking
+     for the packet.
+
+  1. The VLAN bridge `qbr` forwards the packet to the logical VLAN
+     interface `device.sid` where *device* references the underlying
+     physical VLAN interface and *sid* contains the tenant network
+     segmentation ID.
+
+  1. The logical VLAN interface `device.sid` forwards the packet to the
+     network node via the physical VLAN interface.
 
 The following steps involve the network node.
 
-1. For VLAN tenant networks:
-
-  1. The VLAN interface forwards the packet to the Open vSwitch VLAN
-      bridge `br-vlan`.
-
-  1. The Open vSwitch VLAN bridge `br-vlan` forwards the packet to the
-     Open vSwitch integration bridge `br-int`.
-
-  1. The Open vSwitch integration bridge `br-int` replaces the actual
-     VLAN tag of tenant network 1 with the internal tag.
-
 1. For VXLAN tenant networks:
 
-  1. The tunnel interface forwards the packet to the Open vSwitch tunnel
-     bridge `br-tun`.
+  1. The physical tunnel interface forwards the packet to the logical
+     tunnel interface `vxlan-sid` (4) where *sid* contains the tenant
+     network segmentation ID.
 
-  1. The Open vSwitch tunnel bridge `br-tun` unwraps the packet and adds
-     the internal tag for tenant network 1.
+  1. The logical tunnel interface `vxlan-sid` forwards the packet to the
+     tunnel bridge `qbr`.
 
-  1. The Open vSwitch tunnel bridge `br-tun` forwards the packet to the
-     Open vSwitch integration bridge `br-int`.
+  1. The tunnel bridge `qbr` forwards the packet to the `qr` interface (5)
+     in the router namespace `qrouter`. The `qr` interface contains the
+     tenant network 1 router interface IP address *TG1*.
 
-1. The Open vSwitch integration bridge `br-int` forwards the packet to
-   the `qr` interface (3) in the router namespace `qrouter`. The `qr`
-   interface contains the tenant network 1 gateway IP address *TG1*.
+1. For VLAN tenant networks:
 
-1. The *iptables* service (4) performs SNAT on the packet using the `qg`
-   interface (5) as the source IP address. The `qg` interface contains
+  1. The physical VLAN interface forwards the packet to the logical VLAN
+     interface `device.sid` where *device* references the underlying
+     physical VLAN interface and *sid* contains the tenant network
+     segmentation ID.
+
+  1. The logical VLAN interface `device.sid` forwards the packet to the
+     VLAN bridge `qbr`.
+
+  1. The VLAN bridge `qbr` forwards the packet to the `qr` interface in
+     the router namespace `qrouter`. The `qr` interface contains the
+     tenant network 1 gateway IP address *TG1*.
+
+1. The *iptables* service (6) performs SNAT on the packet using the `qg`
+   interface (7) as the source IP address. The `qg` interface contains
    the tenant network 1 router interface IP address *TR1*.
 
-1. For VLAN tenant networks:
+1. The router namespace `qrouter` forwards the packet to the external
+   bridge `qbr`.
 
-  1. The router namespace `qrouter` forwards the packet to the Open vSwitch
-     integration bridge `br-int` via the `qg` interface.
-
-  1. The Open vSwitch integration bridge `br-int` forwards the packet to
-     the Open vSwitch external bridge `br-ex`.
-
-1. For VXLAN tenant networks:
-
-  1. The router namespace `qrouter` forwards the packet to the Open vSwitch
-     external bridge `br-ex` via the `qg` interface.
-
-1. The Open vSwitch external bridge `br-ex` forwards the packet to the
-   external network via the external interface.
+1. The external bridge `qbr` forwards the packet to the external network
+   via the physical external interface.
 
 Note: Return traffic follows similar steps in reverse.
 
@@ -287,89 +282,78 @@ The instance receives a packet from a host on the external network.
 
 #### Packet flow
 
-The following steps involve the network node. FIXME
+Although the diagram shows both VXLAN and VLAN tenant networks, the packet
+flow only considers one active VXLAN tenant network. The unlabeled components
+in the diagram exist to enhance visualization of the architecture.
 
-1. The external interface forwards the packet to the Open vSwitch external
-   bridge `br-ex`.
+The following steps involve the network node.
 
-1. For VLAN tenant networks:
+1. The physical external interface forwards the packet to the external
+   bridge `qbr`.
 
-  1. The Open vSwitch external bridge `br-ex` forwards the packet to the
-     Open vSwitch integration bridge `br-int`.
-
-  1. The Open vSwitch integration bridge forwards the packet to the `qg`
-     interface (1) in the router namespace `qrouter`. The `qg` interface
-     contains the instance 1 floating IP address *F1*.
-
-1. For VXLAN tenant networks:
-
-  1. The Open vSwitch external bridge `br-ex` forwards the packet to the
-     `qg` interface (1) in the router namespace `qrouter`.
+1. The external bridge `qbr` forwards the packet to the `qg` interface (1)
+   in the router namespace `qrouter`. The `qg` interface contains the
+   instance floating IP address *F1*.
 
 1. The *iptables* service (2) performs DNAT on the packet using the `qr`
-   interface (3) as the source IP address. The `qr` interface contains
-   the tenant network 1 router interface IP address *TR1*.
-
-1. The router namespace `qrouter` forwards the packet to the Open vSwitch
-   integration bridge `br-int`.
-
-1. The Open vSwitch integration bridge `br-int` adds the internal tag for
-   tenant network 1.
-
-1. For VLAN tenant networks:
-
-  1. The Open vSwitch integration bridge `br-int` replaces the internal tag
-     with the actual VLAN tag of tenant network 1.
-
-  1. The Open vSwitch integration bridge `br-int` forwards the packet to the
-     Open vSwitch VLAN bridge `br-vlan`.
-
-  1. The Open vSwitch VLAN bridge `br-vlan` forwards the packet to the
-     compute node via the VLAN interface.
+   interface (3) as the source IP address. The `qr` interface contains the
+   tenant network 1 gateway IP address *TR1*.
 
 1. For VXLAN tenant networks:
 
-  1. The Open vSwitch integration bridge `br-int` forwards the packet to
-     the Open vSwitch tunnel bridge `br-tun`.
+  1. The router namespace `qrouter` forwards the packet to the tunnel
+     bridge `qbr`.
 
-  1. The Open vSwitch tunnel bridge `br-tun` wraps the packet in a VXLAN
-     or GRE tunnel and adds a tag to identify tenant network 1.
+  1. The tunnel bridge `qbr` forwards the packet to the logical tunnel
+     interface `vxlan-sid` (4) where *sid* contains the tenant network
+     segmentation ID.
 
-  1. The Open vSwitch tunnel bridge `br-tun` forwards the packet to the
-     compute node via the tunnel interface.
+  1. The physical tunnel interface forwards the packet to compute node 1.
+
+1. For VLAN tenant networks:
+
+  1. The router namespace `qrouter` forwards the packet to the VLAN
+     bridge `qbr`.
+
+  1. The VLAN bridge `qbr` forwards the packet to the logical VLAN
+     interface `device.sid` where *device* references the underlying
+     physical VLAN interface and *sid* contains the tenant network
+     segmentation ID.
+
+  1. The physical VLAN interface forwards the packet to compute node 1.
 
 The following steps involve compute node 1.
 
-1. For VLAN tenant networks:
-
-  1. The VLAN interface forwards the packet to the Open vSwitch VLAN
-     bridge `br-vlan`.
-
-  1. The Open vSwitch VLAN bridge `br-vlan` forwards the packet to the
-     Open vSwitch integration bridge `br-int`.
-
-  1. The Open vSwitch VLAN bridge `br-vlan` replaces the actual VLAN tag
-     of tenant network 1 with the internal tag.
-
 1. For VXLAN tenant networks:
 
-  1. The tunnel interface forwards the packet to the Open vSwitch tunnel
-     bridge `br-tun`.
+  1. The physical tunnel interface forwards the packet to the logical
+     tunnel interface `vxlan-sid` (5) where *sid* contains the tenant
+     network segmentation ID.
 
-  1. The Open vSwitch tunnel bridge `br-tun` unwraps the packet and adds
-     the internal tag for tenant network 1.
+  1. The logical tunnel interface `vxlan-sid` forwards the packet to the
+     tunnel bridge `qbr`.
 
-  1. The Open vSwitch tunnel bridge `br-tun` forwards the packet to the
-     Open vSwitch integration bridge `br-int`.
+  1. Security group rules (6) on the tunnel bridge `qbr` handle firewalling
+     and state tracking for the packet.
 
-1. The Open vSwitch integration bridge `br-int` forwards the packet to
-   the Linux bridge `qbr`.
+  1. The tunnel bridge `qbr` forwards the packet to the `tap` interface (7)
+     on instance 1.
 
-1. Security group rules (4) on the Linux bridge `qbr` handle firewalling
-   and state tracking for the packet.
+1. For VLAN tenant networks:
 
-1. The Linux bridge `qbr` forwards the packet to the `tap` interface (5)
-   on instance 1.
+  1. The physical VLAN interface forwards the packet to the logical
+     VLAN interface `device.sid` where *device* references the underlying
+     physical VLAN interface and *sid* contains the tenant network
+     segmentation ID.
+
+  1. The logical VLAN interface `device.sid` forwards the packet to the
+     VLAN bridge `qbr`.
+
+  1. Security group rules on the VLAN bridge `qbr` handle firewalling
+     and state tracking for the packet.
+
+  1. The VLAN bridge `qbr` forwards the packet to the `tap` interface
+     on instance 1.
 
 Note: Return traffic follows similar steps in reverse.
 
@@ -382,7 +366,7 @@ routes *east-west* network traffic among tenant networks using the
 same router.
 
 Note: The term *east-west* generally defines network traffic that
-travels within a tenant network or between tenant networks.
+travels between instances, typically on different tenant networks.
 
 #### Example environment configuration
 
@@ -412,133 +396,133 @@ reside on the same router. Instance 1 sends a packet to instance 2.
 
 #### Packet flow
 
-The following steps involve compute node 1: FIXME
+Although the diagram shows both VXLAN and VLAN tenant networks on each
+compute node, the packet flow only considers one active VXLAN tenant
+network on compute node 1 and one active VLAN tenant network on compute
+node 2. The unlabeled components in the diagram exist to enhance
+visualization of the architecture.
 
-1. The instance 1 `tap` interface (1) forwards the packet to the Linux
-   bridge `qbr`. The packet contains destination MAC address *TG1*
-   because the destination resides on another network.
-
-1. Security group rules (2) on the Linux bridge `qbr` handle state tracking
-   for the packet.
-
-1. The Linux bridge `qbr` forwards the packet to the Open vSwitch
-   integration bridge `br-int`.
-
-1. The Open vSwitch integration bridge `br-int` adds the internal tag for
-   tenant network 1.
-
-1. For VLAN tenant networks:
-
-  1. The Open vSwitch integration bridge `br-int` replaces the internal
-     tag with the actual VLAN tag of tenant network 1 and forwards it
-     to the Open vSwitch VLAN bridge `br-vlan`.
-
-  1. The Open vSwitch VLAN bridge `br-vlan` forwards the packet to the
-     network node via the VLAN interface.
+The following steps involve compute node 1:
 
 1. For VXLAN tenant networks:
 
-  1. The Open vSwitch integration bridge `br-int` forwards the packet to
-     the Open vSwitch tunnel bridge `br-tun`.
+  1. The instance 1 `tap` interface (1) forwards the packet to the tunnel
+     bridge `qbr`. The packet contains destination MAC address *TG1*
+     because the destination resides on another network.
 
-  1. The Open vSwitch tunnel bridge `br-tun` wraps the packet in a VXLAN
-     or GRE tunnel and adds a tag to identify tenant network 1.
+  1. Security group rules (2) on the tunnel bridge `qbr` handle state tracking
+     for the packet.
 
-  1. The Open vSwitch tunnel bridge `br-tun` forwards the packet to the
-     network node via the tunnel interface.
+  1. The tunnel bridge `qbr` forwards the packet to the logical tunnel
+     interface `vxlan-sid` (3) where *sid* contains the tenant network
+     segmentation ID.
+
+  1. The physical tunnel interface forwards the packet to the network
+     node.
+
+1. For VLAN tenant networks:
+
+  1. The instance 1 `tap` interface forwards the packet to the VLAN
+     bridge `qbr`. The packet contains destination MAC address *TG1*
+     because the destination resides on another network.
+
+  1. Security group rules on the VLAN bridge `qbr` handle state tracking
+     for the packet.
+
+  1. The VLAN bridge `qbr` forwards the packet to the logical VLAN
+     interface `device.sid` where *device* references the underlying
+     physical VLAN interface and *sid* contains the tenant network
+     segmentation ID.
+
+  1. The logical VLAN interface `device.sid` forwards the packet to the
+     network node via the physical VLAN interface.
 
 The following steps involve the network node.
 
+1. For VXLAN tenant networks:
+
+  1. The physical tunnel interface forwards the packet to the logical
+     tunnel interface `vxlan-sid` (4) where *sid* contains the tenant
+     network segmentation ID.
+
+  1. The logical tunnel interface `vxlan-sid` forwards the packet to the
+     tunnel bridge `qbr`.
+
+  1. The tunnel bridge `qbr` forwards the packet to the `qr-1` interface (5)
+     in the router namespace `qrouter`. The `qr-1` interface contains the
+     tenant network 1 gateway IP address *TG1*.
+
 1. For VLAN tenant networks:
 
-  1. The VLAN interface forwards the packet to the Open vSwitch VLAN
-      bridge `br-vlan`.
+  1. The physical VLAN interface forwards the packet to the logical
+     VLAN interface `device.sid` where *device* references the underlying
+     physical VLAN interface and *sid* contains the tenant network
+     segmentation ID.
 
-  1. The Open vSwitch VLAN bridge `br-vlan` forwards the packet to the
-     Open vSwitch integration bridge `br-int`.
+  1. The logical VLAN interface `device.sid` forwards the packet to the
+     VLAN bridge `qbr`.
 
-  1. The Open vSwitch integration bridge `br-int` replaces the actual
-     VLAN tag of tenant network 1 with the internal tag.
+  1. The VLAN bridge `qbr` forwards the packet to the `qr-1` interface in
+     the router namespace `qrouter`. The `qr-1` interface contains the
+     tenant network 1 gateway IP address *TG1*.
+
+1. The router namespace `qrouter` routes the packet (6) to the `qr-2`
+   interface (7). The The `qr-2` interface contains the tenant network 2
+   gateway IP address *TG2*.
 
 1. For VXLAN tenant networks:
 
-  1. The tunnel interface forwards the packet to the Open vSwitch tunnel
-     bridge `br-tun`.
+  1. The router namespace `qrouter` forwards the packet to the tunnel
+     bridge `qbr`.
 
-  1. The Open vSwitch tunnel bridge `br-tun` unwraps the packet and adds
-     the internal tag for tenant network 1.
+  1. The tunnel bridge `qbr` forwards the packet to the logical tunnel
+     interface `vxlan-sid` where *sid* contains the tenant network
+     segmentation ID.
 
-  1. The Open vSwitch tunnel bridge `br-tun` forwards the packet to the
-     Open vSwitch integration bridge `br-int`.
-
-1. The Open vSwitch integration bridge `br-int` forwards the packet to
-   the `qr-1` interface (3) in the router namespace `qrouter`. The `qr-1`
-   interface contains the tenant network 1 gateway IP address *TG1*.
-
-1. The router namespace `qrouter` routes the packet to the `qr-2` interface
-   (4). The `qr-2` interface contains the tenant network 2 gateway IP
-   address *TG2*.
-
-1. The router namespace `qrouter` forwards the packet to the Open vSwitch
-   integration bridge `br-int`.
-
-1. The Open vSwitch integration bridge `br-int` adds the internal tag for
-   tenant network 2.
+  1. The physical tunnel interface forwards the packet to compute node 2.
 
 1. For VLAN tenant networks:
 
-  1. The Open vSwitch integration bridge `br-int` replaces the internal tag
-     with the actual VLAN tag of tenant network 2.
+  1. The router namespace `qrouter` forwards the packet to the VLAN
+     bridge `qbr`.
 
-  1. The Open vSwitch integration bridge `br-int` forwards the packet to the
-     Open vSwitch VLAN bridge `br-vlan`.
+  1. The VLAN bridge `qbr` forwards the packet to the logical VLAN
+     interface `vlan.sid` (8) where *sid* contains the tenant network
+     segmentation ID.
 
-  1. The Open vSwitch VLAN bridge `br-vlan` forwards the packet to
-     compute node 2 via the VLAN interface.
-
-1. For VXLAN networks:
-
-  1. The Open vSwitch integration bridge `br-int` forwards the packet to
-     the Open vSwitch tunnel bridge `br-tun`.
-
-  1. The Open vSwitch tunnel bridge `br-tun` wraps the packet in a VXLAN
-     or GRE tunnel and adds a tag to identify tenant network 2.
-
-  1. The Open vSwitch tunnel bridge `br-tun` forwards the packet to
-     compute node 2 via the tunnel interface.
+  1. The physical VLAN interface forwards the packet to compute node 2.
 
 The following steps involve compute node 2:
 
-1. For VLAN tenant networks:
-
-  1. The VLAN interface forwards the packet to the Open vSwitch VLAN
-     bridge `br-vlan`.
-
-  1. The Open vSwitch VLAN bridge `br-vlan` forwards the packet to the
-     Open vSwitch integration bridge `br-int`.
-
-  1. The Open vSwitch VLAN bridge `br-vlan` replaces the actual VLAN tag
-     of tenant network 2 with the internal tag.
-
 1. For VXLAN tenant networks:
 
-  1. The tunnel interface forwards the packet to the Open vSwitch tunnel
-     bridge `br-tun`.
+  1. The physical tunnel interface forwards the packet to the logical
+     tunnel interface `vxlan-sid` where *sid* contains the tenant network
+     segmentation ID.
 
-  1. The Open vSwitch tunnel bridge `br-tun` unwraps the packet and adds
-     the internal tag for tenant network 2.
+  1. The logical tunnel interface `vxlan-sid` forwards the packet to the
+     tunnel bridge `qbr`.
 
-  1. The Open vSwitch tunnel bridge `br-tun` forwards the packet to the
-     Open vSwitch integration bridge `br-int`.
+  1. Security group rules on the tunnel bridge `qbr` handle firewalling
+     and state tracking for the packet.
 
-1. The Open vSwitch integration bridge `br-int` forwards the packet to
-   the Linux bridge `qbr`.
+  1. The tunnel bridge `qbr` forwards the packet to the `tap` interface
+     on instance 2.
 
-1. Security group rules (5) on the Linux bridge `qbr` handle firewalling
-   and state tracking for the packet.
+1. For VLAN tenant networks:
 
-1. The Linux bridge `qbr` forwards the packet to the `tap` interface (6)
-   on instance 2.
+  1. The physical VLAN interface forwards the packet to the logical VLAN
+     interface `vlan.sid` (9) where *sid* contains the tenant network
+     segmentation ID.
+
+  1. The logical VLAN interface `vlan.sid` forwards the packet to the
+     VLAN bridge `qbr`.
+
+  1. Security group rules (10) on the VLAN bridge `qbr` handle firewalling
+     and state tracking for the packet.
+
+  1. The VLAN bridge `qbr` forwards the packet to the `tap` interface (11)
+     on instance 2.
 
 Note: Return traffic follows similar steps in reverse.
 
@@ -663,9 +647,6 @@ The network node provides DHCP and NAT services to all instances.
     enable_vxlan = True
     local_ip = TENANT_TUNNEL_INTERFACE_IP_ADDRESS
     l2_population = True
-
-    [agent]
-    tunnel_types = vxlan
     ```
 
   Note: Adjust the VLAN tag and VXLAN tunnel ID ranges for your
@@ -797,9 +778,6 @@ for instances.
     enable_vxlan = True
     local_ip = TENANT_TUNNEL_INTERFACE_IP_ADDRESS
     l2_population = True
-
-    [agent]
-    tunnel_types = vxlan
     ```
 
   Note: The first value in the 'tenant_network_types' option becomes the
