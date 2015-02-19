@@ -47,6 +47,8 @@ Networking service in a future deployment.
 
 # Architecture
 
+![general diagram](/common/images/scenario-provider-ovs/networkguide-neutron-provider-general.png)
+
 The network architecture for a provider networking from the OpenStack
 perspective is fairly simple since the OpenStack cluster is being
 "plugged in" to a provisioned and configured network that includes L2
@@ -55,6 +57,22 @@ switch that the OpenStack cluster is connected to already has
 provisioned VLANs for the management/API network and public
 Internet.
 
+![Network diagram](/common/images/scenario-provider-ovs/networkguide-neutron-provider-networks.png)
+
+## Hardware 
+
+![Hardware diagram](/common/images/scenario-provider-ovs/networkguide-neutron-provider-hw.png)
+
+
+## Controller Node 
+
+![Controller diagram](/common/images/scenario-provider-ovs/networkguide-neutron-provider-ovs-controller1.png)
+![Controller diagram](/common/images/scenario-provider-ovs/networkguide-neutron-provider-ovs-controller2.png)
+
+## Compute Node
+
+![Compute diagram #1](/common/images/scenario-provider-ovs/networkguide-neutron-provider-ovs-compute1.png)
+![Compute diagram #2](/common/images/scenario-provider-ovs/networkguide-neutron-provider-ovs-compute2.png)
 
 # Packet Flow
 
@@ -65,3 +83,12 @@ between the internal VLAN tag used for a Neutron network, and then
 inserts rules in the Open vSwitch switching infrastructure to rewrite
 the internal VLAN tag back to the VLAN tag that is allocated on the
 hardware switch, as packets cross the br-ex device.
+
+## North-South packet flow
+
+![north-south diagram](/common/images/scenario-provider-ovs/networkguide-neutron-provider-ovs-flowns1.png)
+
+
+## East-West packet flow
+
+![north-south diagram](/common/images/scenario-provider-ovs/networkguide-neutron-provider-ovs-flowew1.png)
