@@ -1,11 +1,14 @@
+.. highlight: ini
+   :linenothreshold: 5
+
 =============================================================================
 Scenario: Basic implementation of Layer 3 High-Availability with Open vSwitch
 =============================================================================
 
 This scenario describes a basic implementation of the OpenStack
-Networking Layer 3 High-Availabilty (L3 HA) feature using the ML2
-plug-in with Open vSwitch (OVS). The example configuration creates
-one flat external network and VXLAN tenant networks. However, L3HA
+Networking Layer 3 High-Availabilty (L3 HA) feature using the modular layer
+2 (ML2) plug-in with Open vSwitch (OVS). The example configuration creates
+one flat external network and VXLAN tenant networks. However, L3 HA
 also supports VLAN external networks, VLAN tenant networks, and GRE
 tenant networks.
 
@@ -35,15 +38,15 @@ Requirements
    To reduce the chance of "split-brain" issues, we recommend that you
    deploy an odd quantity of network nodes with a minimum of three nodes.
 
-.. figure:: ../common/images/networkguide-neutron-l3ha-hw.png
-   :alt: Neutron L3 HA OVS Scenario - Hardware Requirements
+.. figure:: ../common/images/scenario-l3ha-hw.png
+   :alt: L3 HA OVS Scenario - Hardware Requirements
 
-   Neutron L3 HA OVS Scenario - Hardware Requirements
+   L3 HA OVS Scenario - Hardware Requirements
 
-.. figure:: ../common/images/networkguide-neutron-l3ha-networks.png
-   :alt: Neutron L3 HA OVS Scenario - Network Layout
+.. figure:: ../common/images/scenario-l3ha-networks.png
+   :alt: L3 HA OVS Scenario - Network Layout
 
-   Neutron L3 HA OVS Scenario - Network Layout
+   L3 HA OVS Scenario - Network Layout
 
 .. note::
 
@@ -53,239 +56,227 @@ Requirements
 
 .. warning::
 
-   Proper operation of VXLAN requires kernel 3.13 or newer. In
-   general, only Ubuntu 14.04, Fedora 20, and Fedora 21 meet or exceed this
-   minimum version requirement when using packages rather than source. Also,
-   the Juno release (2014.2) of neutron does not support the L2 population
-   mechanism with L3 HA.
+   Proper operation of VXLAN requires kernel 3.13 or newer. In general,
+   only Ubuntu 14.04, Fedora 20, and Fedora 21 meet or exceed this minimum
+   version requirement when using packages rather than source. Also, the
+   Juno release (2014.2) of OpenStack Networking does not support the L2
+   population mechanism with L3 HA.
 
 Prerequisites
 ~~~~~~~~~~~~~
 
-1. Controller node
+Controller node
 
-   a. Operational SQL server with ``neutron`` database and appropriate
-      configuration in the ``neutron.conf`` file.
+* Operational SQL server with ``neutron`` database and appropriate
+  configuration in the :file:`neutron.conf` file.
 
-   #. Operational message queue service with appropriate configuration
-      in the ``neutron.conf`` file.
+* Operational message queue service with appropriate configuration
+  in the :file:`neutron.conf` file.
 
-   #. Operational OpenStack Identity service with appropriate configuration
-      in the ``neutron.conf`` file.
+* Operational OpenStack Identity service with appropriate configuration
+  in the :file:`neutron.conf` file.
 
-   #. Operational OpenStack Compute controller/management service with
-      appropriate configuration to use neutron in the ``nova.conf``
-      file.
+* Operational OpenStack Compute controller/management service with
+  appropriate configuration to use OpenStack Networking in the
+  :file:`nova.conf` file.
 
-   #. Neutron server service, ML2 plug-in, and any dependencies.
+* Neutron server service, ML2 plug-in, and any dependencies.
 
-#. Network nodes
+Network nodes
 
-   a. Operational OpenStack Identity service with appropriate configuration
-      in the ``neutron.conf`` file.
+* Operational OpenStack Identity service with appropriate configuration
+  in the :file:`neutron.conf` file.
 
-   #. Open vSwitch service, ML2 plug-in, Open vSwitch agent, L3 agent,
-      DHCP agent, metadata agent, and any dependencies including the
-      ``ipset``, ``conntrack``, and ``keepalived`` utilities.
+* Open vSwitch service, ML2 plug-in, Open vSwitch agent, L3 agent,
+  DHCP agent, metadata agent, and any dependencies including the
+  ``ipset``, ``conntrack``, and ``keepalived`` utilities.
 
-#. Compute nodes
+Compute nodes
 
-   a. Operational OpenStack Identity service with appropriate configuration
-      in the ``neutron.conf`` file.
+* Operational OpenStack Identity service with appropriate configuration
+  in the :file:`neutron.conf` file.
 
-   #. Operational OpenStack Compute controller/management service with
-      appropriate configuration to use neutron in the ``nova.conf`` file.
+* Operational OpenStack Compute controller/management service with
+  appropriate configuration to use OpenStack Networking in the
+  :file:`neutron.conf` file.
 
-   #. Open vSwitch service, ML2 plug-in, Open vSwitch agent, and any
-      dependencies including the ``ipset`` utility.
+* Open vSwitch service, ML2 plug-in, Open vSwitch agent, and any
+  dependencies including the ``ipset`` utility.
 
-.. figure:: ../common/images/networkguide-neutron-l3ha-ovs-services.png
-   :alt: Neutron L3 HA OVS Scenario - Service Layout
+.. figure:: ../common/images/scenario-l3ha-ovs-services.png
+   :alt: L3 HA OVS Scenario - Service Layout
 
-   Neutron L3 HA OVS Scenario - Service Layout
+   L3 HA OVS Scenario - Service Layout
 
 Architecture
 ~~~~~~~~~~~~
 
-General
--------
+The general L3 HA architecture augments the legacy networking architecture by
+providing failover for virtual routers under the L3 agent. The failover
+mechanism implements Virtual Router Redundancy Protocol (VRRP) using the
+``keepalived`` service and handles network connection tracking using the
+``conntrack`` utilities. If the L3 agent on a network node fails or a network
+node loses connectivity, HA processes automatically migrate routing services
+and active connections to another L3 agent. Similar to legacy architectures,
+L3 HA performs all functions on the network nodes and does not address
+bandwidth constraints that limit performance. Consider deploying DVR to
+increase performance.
 
-The general L3 HA architecture augments the legacy architecture by providing
-failover for virtual routers under the L3 agent. The failover mechanism
-implements Virtual Router Redundancy Protocol (VRRP) using the ``keepalived``
-service and handles network connection tracking using the ``conntrack``
-utilities. If the L3 agent on a network node fails or a network node loses
-connectivity, HA processes automatically migrate routing services and active
-connections to another L3 agent. Similar to legacy architectures, L3 HA
-performs all functions on the network nodes and does not address bandwidth
-constraints that limit performance. Consider deploying DVR to increase
-performance.
+.. figure:: ../common/images/scenario-l3ha-general.png
+   :alt: L3 HA OVS Scenario - Architecture Overview
 
-.. figure:: ../common/images/networkguide-neutron-l3ha-general.png
-   :alt: Neutron L3 HA OVS Scenario - Architecture Overview
-
-   Neutron L3 HA OVS Scenario - Architecture Overview
+   L3 HA OVS Scenario - Architecture Overview
 
 The network nodes run the Open vSwitch agent, L3 agent, DHCP agent, and
 metadata agent.
 
-.. figure:: ../common/images/networkguide-neutron-l3ha-ovs-network1.png
-   :alt: Neutron L3 HA OVS Scenario - Network Node Overview
+.. figure:: ../common/images/scenario-l3ha-ovs-network1.png
+   :alt: L3 HA OVS Scenario - Network Node Overview
 
-   Neutron L3 HA OVS Scenario - Network Node Overview
+   L3 HA OVS Scenario - Network Node Overview
 
 The compute nodes run the Open vSwitch agent.
 
-.. figure:: ../common/images/networkguide-neutron-l3ha-ovs-compute1.png
-   :alt: Neutron L3 HA OVS Scenario - Compute Node Overview
+.. figure:: ../common/images/scenario-l3ha-ovs-compute1.png
+   :alt: L3 HA OVS Scenario - Compute Node Overview
 
-   Neutron L3 HA OVS Scenario - Compute Node Overview
+   L3 HA OVS Scenario - Compute Node Overview
 
 Components
 ----------
 
 The network node contains the following components:
 
-1. Open vSwitch agent managing virtual switches, connectivity among
-   them, and interaction via virtual ports with other network components
-   such as namespaces, Linux bridges, and underlying interfaces.
+* Open vSwitch agent managing virtual switches, connectivity among
+  them, and interaction via virtual ports with other network components
+  such as namespaces, Linux bridges, and underlying interfaces.
 
-#. DHCP agent managing the ``qdhcp`` namespaces.
+* DHCP agent managing the ``qdhcp`` namespaces. The ``qdhcp`` namespaces
+  provide DHCP services for instances using tenant networks.
 
-   a. The ``qdhcp`` namespaces provide DHCP services for instances using
-      tenant networks.
+* L3 agent managing the ``qrouter`` namespaces and VRRP using ``keepalived``
+  and ``conntrack``. The ``qrouter`` namespaces provide routing between
+  tenant and external networks and among tenant networks. They also route
+  metadata traffic between instances and the metadata agent.
 
-#. L3 agent managing the `qrouter` namespaces and VRRP using ``keepalived``
-   and ``conntrack``.
+* Metadata agent handling metadata operations.
 
-   a. The ``qrouter`` namespaces provide routing between tenant and external
-      networks and among tenant networks. They also route metadata traffic
-      between instances and the metadata agent.
+.. figure:: ../common/images/scenario-l3ha-ovs-network2.png
+   :alt: L3 HA OVS Scenario - Network Node Components
 
-#. Metadata agent handling metadata operations.
-
-   a. The metadata agent handles metadata operations for instances.
-
-.. figure:: ../common/images/networkguide-neutron-l3ha-ovs-network2.png
-   :alt: Neutron L3 HA OVS Scenario - Network Node Components
-
-   Neutron L3 HA OVS Scenario - Network Node Components
+   L3 HA OVS Scenario - Network Node Components
 
 The compute nodes contain the following components:
 
-1. Open vSwitch agent managing virtual switches, connectivity among
-   them, and interaction via virtual ports with other network components
-   such as namespaces, Linux bridges, and underlying interfaces.
+* Open vSwitch agent managing virtual switches, connectivity among
+  them, and interaction via virtual ports with other network components
+  such as namespaces, Linux bridges, and underlying interfaces.
 
-#. Linux bridges handling security groups.
+* Linux bridges handling security groups. Due to limitations with Open
+  vSwitch and iptables, the Networking service uses a Linux bridge
+  to manage security groups for instances.
 
-   a. Due to limitations with Open vSwitch and *iptables*, the Networking
-      service uses a Linux bridge to manage security groups for
-      instances.
+.. figure:: ../common/images/scenario-l3ha-ovs-compute2.png
+   :alt: L3 HA OVS Scenario - Compute Node Components
 
-.. figure:: ../common/images/networkguide-neutron-l3ha-ovs-compute2.png
-   :alt: Neutron L3 HA OVS Scenario - Compute Node Components
-
-   Neutron L3 HA OVS Scenario - Compute Node Components
+   L3 HA OVS Scenario - Compute Node Components
 
 Packet flow
 ~~~~~~~~~~~
 
-For normal operations, L3 HA traffic flows match the legacy implementation
-with Open vSwitch scenario.
+For normal operations, L3 HA traffic flows match the OpenStack Networking
+legacy scenario with Open vSwitch.
 
-Failover Operations
+Failover operations
 ~~~~~~~~~~~~~~~~~~~
 
-Placeholder for failover operations discussion.
+.. todo: Placeholder for failover operations discussion.
 
-.. figure:: ../common/images/networkguide-neutron-l3ha-ovs-flowfailover1.png
-   :alt: Neutron L3 HA OVS Scenario - Failover Operations
+.. figure:: ../common/images/scenario-l3ha-ovs-flowfailover1.png
+   :alt: L3 HA OVS Scenario - Failover Operations
 
-   Neutron L3 HA OVS Scenario - Failover Operations
+   L3 HA OVS Scenario - Failover Operations
 
 Configuration
 ~~~~~~~~~~~~~
 
+Use the following example configuration as a template to deploy this
+scenario in your environment.
+
 Controller node (controller)
 ----------------------------
 
-The controller node provides the neutron API and manages services on the
+The controller node provides the Networking API and manages services on the
 other nodes.
 
-1. Configure base options.
+1. Configure base options. Edit the :file:`/etc/neutron/neutron.conf` file:
 
-   a. Edit the ``/etc/neutron/neutron.conf`` file:
+   .. code-block:: ini
 
-      .. code::
+      [DEFAULT]
+      verbose = True
+      core_plugin = ml2
+      service_plugins = router
+      allow_overlapping_ips = True
 
-         [DEFAULT]
-         verbose = True
-         core_plugin = ml2
-         service_plugins = router
-         allow_overlapping_ips = True
+      dhcp_agents_per_network = 2
 
-         dhcp_agents_per_network = 2
+      l3_ha = True
+      max_l3_agents_per_router = 3
+      min_l3_agents_per_router = 2
+      l3_ha_net_cidr = 169.254.192.0/18
 
-         l3_ha = True
-         max_l3_agents_per_router = 3
-         min_l3_agents_per_router = 2
-         l3_ha_net_cidr = 169.254.192.0/18
+      notify_nova_on_port_status_changes = True
+      notify_nova_on_port_data_changes = True
+      nova_url = http://controller:8774/v2
+      nova_region_name = regionOne
+      nova_admin_username = NOVA_ADMIN_USERNAME
+      nova_admin_tenant_id = NOVA_ADMIN_TENANT_ID
+      nova_admin_password =  NOVA_ADMIN_PASSWORD
+      nova_admin_auth_url = http://controller:35357/v2.0
 
-         notify_nova_on_port_status_changes = True
-         notify_nova_on_port_data_changes = True
-         nova_url = http://controller:8774/v2
-         nova_region_name = regionOne
-         nova_admin_username = NOVA_ADMIN_USERNAME
-         nova_admin_tenant_id = NOVA_ADMIN_TENANT_ID
-         nova_admin_password =  NOVA_ADMIN_PASSWORD
-         nova_admin_auth_url = http://controller:35357/v2.0
+   .. note::
 
-      .. note::
+      Replace NOVA_ADMIN_USERNAME, NOVA_ADMIN_TENANT_ID, and
+      NOVA_ADMIN_PASSWORD with suitable values for your environment.
 
-         Replace NOVA_ADMIN_USERNAME, NOVA_ADMIN_TENANT_ID, and
-         NOVA_ADMIN_PASSWORD with suitable values for your environment.
+#. Configure the ML2 plug-in. Edit the
+   :file: `/etc/neutron/plugins/ml2/ml2_conf.ini` file:
 
-#. Configure the ML2 plug-in.
+   .. code-block:: ini
 
-   a) Edit the ``/etc/neutron/plugins/ml2/ml2_conf.ini`` file:
+      [ml2]
+      type_drivers = flat,vlan,gre,vxlan
+      tenant_network_types = vlan,vxlan,gre
+      mechanism_drivers = openvswitch,l2population
 
-      .. code::
+      [ml2_type_vlan]
+      network_vlan_ranges = vlan:1:1000
 
-         [ml2]
-         type_drivers = flat,vlan,gre,vxlan
-         tenant_network_types = vlan,vxlan,gre
-         mechanism_drivers = openvswitch,l2population
+      [ml2_type_gre]
+      tunnel_id_ranges = 1:1000
 
-         [ml2_type_vlan]
-         network_vlan_ranges = vlan:1:1000
+      [ml2_type_vxlan]
+      vni_ranges = 1:1000
+      vxlan_group = 239.1.1.1
 
-         [ml2_type_gre]
-         tunnel_id_ranges = 1:1000
+      [securitygroup]
+      enable_security_group = True
+      enable_ipset = True
+      firewall_driver = neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver
 
-         [ml2_type_vxlan]
-         vni_ranges = 1:1000
-         vxlan_group = 239.1.1.1
+   .. note::
 
-         [securitygroup]
-         enable_security_group = True
-         enable_ipset = True
-         firewall_driver = neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver
+      The first value in the 'tenant_network_types' option becomes the
+      default tenant network type when a non-privileged user creates a
+      network.
 
-      .. note::
+   .. note::
 
-         The first value in the 'tenant_network_types' option becomes the
-         default tenant network type when a non-privileged user creates a
-         network.
+      Adjust the VLAN tag, GRE tunnel ID, and VXLAN tunnel ID ranges for
+      your environment.
 
-      .. note::
-
-         Adjust the VLAN tag, GRE tunnel ID, and VXLAN tunnel ID ranges for
-         your environment.
-
-#. Start the following services:
-
-   * Server
+#. Start the following services: Server
 
 Network nodes (network1 and network2)
 -------------------------------------
@@ -293,137 +284,137 @@ Network nodes (network1 and network2)
 The network nodes provide redundant routing, NAT, and DHCP services to all
 instances.
 
-1. Configure base options.
+1. Configure base options. Edit the :file:`/etc/neutron/neutron.conf` file:
 
-   a. Edit the ``/etc/neutron/neutron.conf`` file:
+   .. code-block:: ini
 
-      .. code::
+      [DEFAULT]
+      verbose = True
+      core_plugin = ml2
+      service_plugins = router
+      allow_overlapping_ips = True
 
-         [DEFAULT]
-         verbose = True
-         core_plugin = ml2
-         service_plugins = router
-         allow_overlapping_ips = True
+      dhcp_agents_per_network = 2
 
-         dhcp_agents_per_network = 2
+      l3_ha = True
+      max_l3_agents_per_router = 3
+      min_l3_agents_per_router = 2
+      l3_ha_net_cidr = 169.254.192.0/18
 
-         l3_ha = True
-         max_l3_agents_per_router = 3
-         min_l3_agents_per_router = 2
-         l3_ha_net_cidr = 169.254.192.0/18
+#. Configure the ML2 plug-in. Edit the
+   :file:`/etc/neutron/plugins/ml2/ml2_conf.ini` file:
 
-#. Configure the ML2 plug-in.
+   .. code-block:: ini
 
-   a. Edit the ``/etc/neutron/plugins/ml2/ml2_conf.ini`` file:
+      [ml2]
+      type_drivers = flat,vlan,gre,vxlan
+      tenant_network_types = vlan,vxlan,gre
+      mechanism_drivers = openvswitch
 
-      .. code::
+      [ml2_type_flat]
+      flat_networks = external
 
-         [ml2]
-         type_drivers = flat,vlan,gre,vxlan
-         tenant_network_types = vlan,vxlan,gre
-         mechanism_drivers = openvswitch
+      [ml2_type_vlan]
+      network_vlan_ranges = vlan:1:1000
 
-         [ml2_type_flat]
-         flat_networks = external
+      [ml2_type_gre]
+      tunnel_id_ranges = 1:1000
 
-         [ml2_type_vlan]
-         network_vlan_ranges = vlan:1:1000
+      [ml2_type_vxlan]
+      vni_ranges = 1:1000
+      vxlan_group = 239.1.1.1
 
-         [ml2_type_gre]
-         tunnel_id_ranges = 1:1000
+      [securitygroup]
+      enable_security_group = True
+      enable_ipset = True
+      firewall_driver = neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver
 
-         [ml2_type_vxlan]
-         vni_ranges = 1:1000
-         vxlan_group = 239.1.1.1
+      [ovs]
+      local_ip = TENANT_TUNNEL_INTERFACE_IP_ADDRESS
+      bridge_mappings = vlan:br-vlan,external:br-ex
 
-         [securitygroup]
-         enable_security_group = True
-         enable_ipset = True
-         firewall_driver = neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver
+      [agent]
+      tunnel_types = gre,vxlan
 
-         [ovs]
-         local_ip = TENANT_TUNNEL_INTERFACE_IP_ADDRESS
-         bridge_mappings = vlan:br-vlan,external:br-ex
+   .. note::
 
-         [agent]
-         tunnel_types = gre,vxlan
+      The first value in the 'tenant_network_types' option becomes the
+      default tenant network type when a non-privileged user creates a
+      network.
 
-      .. note::
+   .. note::
 
-         The first value in the 'tenant_network_types' option becomes the
-         default tenant network type when a non-privileged user creates a
-         network.
+      Adjust the VLAN tag, GRE tunnel ID, and VXLAN tunnel ID ranges for
+      your environment.
 
-      .. note::
+   .. note::
 
-         Adjust the VLAN tag, GRE tunnel ID, and VXLAN tunnel ID ranges for
-         your environment.
+      Replace TENANT_TUNNEL_INTERFACE_IP_ADDRESS with the IP address
+      of the tenant tunnel network interface.
 
-      .. note::
+#. Configure the L3 agent. Edit the :file:`/etc/neutron/l3_agent.ini` file:
 
-         Replace TENANT_TUNNEL_INTERFACE_IP_ADDRESS with the IP address
-         of the tenant tunnel network interface.
+   .. code-block:: ini
 
-#. Configure the L3 agent.
+      [DEFAULT]
+      verbose = True
+      interface_driver = neutron.agent.linux.interface.OVSInterfaceDriver
+      use_namespaces = True
+      external_network_bridge =
+      router_delete_namespaces = True
 
-   a. Edit the ``/etc/neutron/l3_agent.ini`` file:
+   .. note::
 
-      .. code::
+      The 'external_network_bridge' option intentionally contains
+      no value.
 
-         [DEFAULT]
-         verbose = True
-         interface_driver = neutron.agent.linux.interface.OVSInterfaceDriver
-         use_namespaces = True
-         external_network_bridge =
-         router_delete_namespaces = True
+#. Configure the DHCP agent. Edit the :file:`/etc/neutron/dhcp_agent.ini` file:
 
-      .. note::
+   .. code-block:: ini
 
-         The 'external_network_bridge' option intentionally contains
-         no value.
+      [DEFAULT]
+      verbose = True
+      interface_driver = neutron.agent.linux.interface.OVSInterfaceDriver
+      dhcp_driver = neutron.agent.linux.dhcp.Dnsmasq
+      use_namespaces = True
+      dhcp_delete_namespaces = True
 
-#. Configure the DHCP agent.
+#. (Optional) Reduce MTU for VXLAN/GRE tenant networks by enabling custom
+   *Dnsmasq* configuration and configuring it to include the MTU option
+   (26) in DHCP offers for instances.
 
-   a. Edit the ``/etc/neutron/dhcp_agent.ini`` file:
+   Edit the :file:`/etc/neutron/dhcp_agent.ini` file:
 
-      .. code::
+   .. code-block:: ini
 
-         [DEFAULT]
-         verbose = True
-         interface_driver = neutron.agent.linux.interface.OVSInterfaceDriver
-         dhcp_driver = neutron.agent.linux.dhcp.Dnsmasq
-         use_namespaces = True
-         dhcp_delete_namespaces = True
+      [DEFAULT]
+      dnsmasq_config_file = /etc/neutron/dnsmasq-neutron.conf
 
-   #. (Optional) Reduce MTU for VXLAN/GRE tenant networks.
+   Edit the :file:`/etc/neutron/dnsmasq-neutron.conf` file:
 
-      1. Edit the ``/etc/neutron/dhcp_agent.ini`` file:
+   .. code-block:: ini
 
-         .. code::
+      dhcp-option-force=26,1450
 
-            [DEFAULT]
-            dnsmasq_config_file = /etc/neutron/dnsmasq-neutron.conf
+#. Configure the metadata agent. Edit the
+   :file:`/etc/neutron/metadata_agent.ini` file:
 
-#. Configure the metadata agent.
+   .. code-block:: ini
 
-   a. Edit the ``/etc/neutron/metadata_agent.ini`` file:
+      [DEFAULT]
+      verbose = True
+      auth_url = http://controller:5000/v2.0
+      auth_region = regionOne
+      admin_tenant_name = ADMIN_TENANT_NAME
+      admin_user = ADMIN_USER
+      admin_password = ADMIN_PASSWORD
+      nova_metadata_ip = controller
+      metadata_proxy_shared_secret = METADATA_SECRET
 
-      .. code::
+   .. note::
 
-         [DEFAULT]
-         verbose = True
-         auth_url = http://controller:5000/v2.0
-         auth_region = regionOne
-         admin_tenant_name = ADMIN_TENANT_NAME
-         admin_user = ADMIN_USER
-         admin_password = ADMIN_PASSWORD
-         nova_metadata_ip = controller
-         metadata_proxy_shared_secret = METADATA_SECRET
-
-      .. note::
-
-         Replace ADMIN_TENANT_NAME, ADMIN_USER, ADMIN_PASSWORD, and
-         METADATA_SECRET with suitable values for your environment.
+      Replace ADMIN_TENANT_NAME, ADMIN_USER, ADMIN_PASSWORD, and
+      METADATA_SECRET with suitable values for your environment.
 
 #. Start the following services:
 
@@ -439,66 +430,59 @@ Compute nodes (compute1 and compute2)
 The compute nodes provide switching services and handle security groups
 for instances.
 
-1. Configure base options.
+1. Configure base options. Edit the :file:`/etc/neutron/neutron.conf` file:
 
-   a. Edit the ``/etc/neutron/neutron.conf`` file:
+   .. code-block:: ini
 
-      .. code::
+      [DEFAULT]
+      verbose = True
+      core_plugin = ml2
+      service_plugins = router
+      allow_overlapping_ips = True
 
-         [DEFAULT]
-         verbose = True
-         core_plugin = ml2
-         service_plugins = router
-         allow_overlapping_ips = True
+#. Configure the ML2 plug-in. Edit the
+   :file:`/etc/neutron/plugins/ml2/ml2_conf.ini` file:
 
-#. Configure the ML2 plug-in.
+   .. code-block:: ini
 
-   a. Edit the ``/etc/neutron/plugins/ml2/ml2_conf.ini`` file.
+      [ml2]
+      type_drivers = flat,vlan,gre,vxlan
+      tenant_network_types = vlan,gre,vxlan
+      mechanism_drivers = openvswitch,l2population
 
-      .. code::
+      [ml2_type_vlan]
+      network_vlan_ranges = vlan:1:1000
 
-         [ml2]
-         type_drivers = flat,vlan,gre,vxlan
-         tenant_network_types = vlan,gre,vxlan
-         mechanism_drivers = openvswitch,l2population
+      [ml2_type_gre]
+      tunnel_id_ranges = 1:1000
 
-         [ml2_type_vlan]
-         network_vlan_ranges = vlan:1:1000
+      [ml2_type_vxlan]
+      vni_ranges = 1:1000
+      vxlan_group = 239.1.1.1
 
-         [ml2_type_gre]
-         tunnel_id_ranges = 1:1000
+      [securitygroup]
+      enable_security_group = True
+      enable_ipset = True
+      firewall_driver = neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver
 
-         [ml2_type_vxlan]
-         vni_ranges = 1:1000
-         vxlan_group = 239.1.1.1
+      [ovs]
+      local_ip = TENANT_TUNNEL_INTERFACE_IP_ADDRESS
+      bridge_mappings = vlan:br-vlan
 
-         [securitygroup]
-         enable_security_group = True
-         enable_ipset = True
-         firewall_driver = neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver
+      [agent]
+      tunnel_types = gre,vxlan
 
-         [ovs]
-         local_ip = TENANT_TUNNEL_INTERFACE_IP_ADDRESS
-         bridge_mappings = vlan:br-vlan
+   Replace TENANT_TUNNEL_INTERFACE_IP_ADDRESS with the IP address
+   of the tenant tunnel network interface.
 
-         [agent]
-         tunnel_types = gre,vxlan
+   .. note::
 
-      .. note::
+      The first value in the 'tenant_network_types' option becomes the
+      default tenant network type when a non-privileged user creates a
+      network.
 
-         The first value in the 'tenant_network_types' option becomes the
-         default tenant network type when a non-privileged user creates a
-         network.
-
-      .. note::
-
-         Adjust the VLAN tag, GRE tunnel ID, and VXLAN tunnel ID ranges for
-         your environment.
-
-      .. note::
-
-         Replace TENANT_TUNNEL_INTERFACE_IP_ADDRESS with the IP address
-         of the tenant tunnel network interface.
+      Adjust the VLAN tag, GRE tunnel ID, and VXLAN tunnel ID ranges for
+      your environment.
 
 1. Start the following services:
 
@@ -512,7 +496,7 @@ Verify service operation
 
 #. Verify presence and operation of the agents:
 
-   .. code:: console
+   .. code-block:: console
 
       $ neutron agent-list
       +--------------------------------------+--------------------+----------+-------+----------------+---------------------------+
@@ -533,6 +517,9 @@ Verify service operation
 Create initial networks
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Use the following example commands as a template to create initial networks
+in your environment.
+
 External (flat) network
 -----------------------
 
@@ -540,7 +527,7 @@ External (flat) network
 
 #. Create the external network:
 
-   .. code::
+   .. code-block:: console
 
       $ neutron net-create ext-net --router:external True \
         --provider:physical_network external --provider:network_type flat
@@ -563,7 +550,7 @@ External (flat) network
 
 #. Create a subnet on the external network:
 
-   .. code::
+   .. code-block:: console
 
       $ neutron subnet-create ext-net --name ext-subnet \
         --allocation-pool start=203.0.113.101,end=203.0.113.200 \
@@ -593,13 +580,13 @@ Tenant (VXLAN) network
 .. note::
 
    The example configuration contains 'vlan' as the first tenant network
-   type. Only a privileged user can create other types of networks such as
-   VXLAN or GRE. The following commands use the 'admin' tenant credentials to
-   create a VXLAN tenant network.
+   type. Only a privileged OpenStack user can create other types of networks
+   such as VXLAN or GRE. The following commands use the 'admin' tenant
+   credentials to create a VXLAN tenant network.
 
 1. Obtain the 'demo' tenant ID:
 
-   .. code::
+   .. code-block:: console
 
       $ keystone tenant-get demo
       +-------------+----------------------------------+
@@ -613,7 +600,7 @@ Tenant (VXLAN) network
 
 #. Create the tenant network:
 
-   .. code::
+   .. code-block:: console
 
       $ neutron net-create demo-net \
         --tenant-id 443cd1596b2e46d49965750771ebbfe1 \
@@ -638,15 +625,15 @@ Tenant (VXLAN) network
    .. note::
 
       The example configuration contains 'vlan' as the first tenant network
-      type. Only a privileged user can create a VXLAN or GRE networks, so
-      this command uses the ``admin`` tenant credentials to create the
-      tenant network.
+      type. Only a privileged OpenStack tenant and user can create a VXLAN
+      or GRE networks, so this command uses the ``admin`` tenant credentials
+      to create the tenant network.
 
 #. Source the regular tenant credentials.
 
 #. Create a subnet on the tenant network:
 
-   .. code::
+   .. code-block:: console
 
       $ neutron subnet-create demo-net --name demo-subnet \
         --gateway 192.168.1.1 192.168.1.0/24
@@ -671,7 +658,7 @@ Tenant (VXLAN) network
 
 #. Create a tenant network router:
 
-   .. code::
+   .. code-block:: console
 
       $ neutron router-create demo-router
       Created a new router:
@@ -694,17 +681,17 @@ Tenant (VXLAN) network
      Default policy might prevent the 'ha' flag from appearing in the
      command output. Using the ``admin`` tenant credentials, run the
      ``neutron router-show demo-router`` command to see all fields.
-    
+
 #. Add a tenant subnet interface on the router:
 
-   .. code::
+   .. code-block:: console
 
       $ neutron router-interface-add demo-router demo-subnet
       Added interface 8de3e172-5317-4c87-bdc1-f69e359de92e to router demo-router.
 
 #. Add a gateway to the external network on the router:
 
-   .. code::
+   .. code-block:: console
 
       $ neutron router-gateway-set demo-router ext-net
       Set gateway for router demo-router
@@ -712,19 +699,34 @@ Tenant (VXLAN) network
 Verify operation
 ----------------
 
-1. On the network nodes, verify creation of the ``qrouter`` and ``qdhcp``
+1. On the controller node, verify creation of the HA ports on the
+   ``demo-router`` router:
+
+   .. code-block:: console
+
+      $ neutron router-port-list demo-router
+      +--------------------------------------+-------------------------------------------------+-------------------+----------------------------------------------------------------------------------------+
+      | id                                   | name                                            | mac_address       | fixed_ips                                                                              |
+      +--------------------------------------+-------------------------------------------------+-------------------+----------------------------------------------------------------------------------------+
+      | 255d2e4b-33ba-4166-a13f-6531122641fe | HA port tenant 443cd1596b2e46d49965750771ebbfe1 | fa:16:3e:25:05:d7 | {"subnet_id": "8e8e4c7d-fa38-417d-a4e3-03ee5ab5493c", "ip_address": "169.254.192.1"}   |
+      | 374587d7-2acd-4156-8993-4294f788b55e |                                                 | fa:16:3e:82:a0:59 | {"subnet_id": "b32e0efc-8cc3-43ff-9899-873b94df0db1", "ip_address": "203.0.113.101"}   |
+      | 8de3e172-5317-4c87-bdc1-f69e359de92e |                                                 | fa:16:3e:10:9f:f6 | {"subnet_id": "2945790c-5999-4693-b8e7-50a9fc7f46f5", "ip_address": "192.168.1.1"}     |
+      | 90d1a59f-b122-459d-a94a-162a104de629 | HA port tenant 443cd1596b2e46d49965750771ebbfe1 | fa:16:3e:ae:3b:22 | {"subnet_id": "8e8e4c7d-fa38-417d-a4e3-03ee5ab5493c", "ip_address": "169.254.192.2"}   |
+      +--------------------------------------+-------------------------------------------------+-------------------+----------------------------------------------------------------------------------------+
+
+#. On the network nodes, verify creation of the ``qrouter`` and ``qdhcp``
    namespaces:
 
    Network node 1:
 
-   .. code::
+   .. code-block:: console
 
       $ ip netns
       qrouter-7a46dba8-8846-498c-9e10-588664558473
 
    Network node 2:
 
-   .. code::
+   .. code-block:: console
 
       $ ip netns
       qrouter-7a46dba8-8846-498c-9e10-588664558473
@@ -735,13 +737,13 @@ Verify operation
 
    .. note::
 
-      The `qdhcp` namespaces might not appear until launching an instance.
+      The ``qdhcp`` namespaces might not appear until launching an instance.
 
 #. On the network nodes, verify HA operation:
 
    Network node 1:
 
-   .. code::
+   .. code-block:: console
 
       ip netns exec qrouter-7a46dba8-8846-498c-9e10-588664558473 ip addr show
       11: ha-255d2e4b-33: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default
@@ -765,7 +767,7 @@ Verify operation
 
    Network node 2:
 
-   .. code::
+   .. code-block:: console
 
       $ ip netns exec qrouter-7a46dba8-8846-498c-9e10-588664558473 ip addr show
       11: ha-90d1a59f-b1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default
@@ -796,7 +798,7 @@ Verify operation
 
    Network node 1:
 
-   .. code::
+   .. code-block:: console
 
       $ tcpdump -lnpi eth2
       16:50:16.857294 IP 169.254.192.1 > 224.0.0.18: VRRPv2, Advertisement, vrid 1, prio 50, authtype none, intvl 2s, length 20
@@ -805,7 +807,7 @@ Verify operation
 
    Network node 2:
 
-   .. code::
+   .. code-block:: console
 
       $ tcpdump -lnpi eth2
       16:51:44.911640 IP 169.254.192.3 > 224.0.0.18: VRRPv2, Advertisement, vrid 1, prio 50, authtype none, intvl 2s, length 20
@@ -820,7 +822,7 @@ Verify operation
    IP address, typically the lowest IP address in the external network
    subnet allocation range.
 
-   .. code::
+   .. code-block:: console
 
       # ping -c 4 203.0.113.101
       PING 203.0.113.101 (203.0.113.101) 56(84) bytes of data.
@@ -841,7 +843,7 @@ Verify operation
 
    a. Test connectivity to the tenant network router.
 
-      .. code::
+      .. code-block:: console
 
          $ ping -c 4 192.168.1.1
          PING 192.168.1.1 (192.168.1.1) 56(84) bytes of data.
@@ -856,7 +858,7 @@ Verify operation
 
    #. Test connectivity to the Internet.
 
-      .. code::
+      .. code-block:: console
 
          $ ping -c 4 openstack.org
          PING openstack.org (174.143.194.225) 56(84) bytes of data.
@@ -874,7 +876,7 @@ Verify operation
 
 #. Create a floating IP address.
 
-   .. code::
+   .. code-block:: console
 
       $ neutron floatingip-create ext-net
       Created a new floatingip:
@@ -893,14 +895,14 @@ Verify operation
 
 #. Associate the floating IP address with the instance.
 
-   .. code::
+   .. code-block:: console
 
-      $ nova floating-ip-associate demo-instance1 10.1.23.102
+      $ nova floating-ip-associate demo-instance1 203.0.113.102
 
 #. On the controller node, ping the floating IP address associated with
    the instance.
 
-   .. code::
+   .. code-block:: console
 
       $ ping -c 4 203.0.113.102
       PING 203.0.113.102 (203.0.113.112) 56(84) bytes of data.
@@ -912,6 +914,3 @@ Verify operation
       --- 203.0.113.102 ping statistics ---
       4 packets transmitted, 4 received, 0% packet loss, time 3002ms
       rtt min/avg/max/mdev = 0.929/1.539/3.183/0.951 ms
-
-This work is licensed under the `Creative Commons Attribution 3.0 United
-States License <http://creativecommons.org/licenses/by/3.0/us/>`_.
