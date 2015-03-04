@@ -26,9 +26,9 @@ bridge.
    tenant tunnel networks, and tenant VLAN networks. The Open vSwitch
    bridge `br-vlan` must contain a port on the VLAN interface.
 
-![Neutron Legacy OVS Scenario - Hardware Requirements](../common/images/networkguide-neutron-legacy-hw.png "Neutron Legacy OVS Scenario - Hardware Requirements")
+![Legacy OVS Scenario - Hardware Requirements](../common/images/scenario-legacy-hw.png "Legacy OVS Scenario - Hardware Requirements")
 
-![Neutron Legacy OVS Scenario - Network Layout](../common/images/networkguide-neutron-legacy-networks.png "Neutron Legacy OVS Scenario - Network Layout")
+![Legacy OVS Scenario - Network Layout](../common/images/scenario-legacy-networks.png "Legacy OVS Scenario - Network Layout")
 
 Note: For VLAN external and tenant networks, the network infrastructure
 must support VLAN tagging. For best performance with VXLAN and GRE
@@ -76,7 +76,7 @@ minimum version requirement when using packages rather than source.**
   1. Open vSwitch service, ML2 plug-in, Open vSwitch agent, and any
      dependencies including the `ipset` utility.
 
-![Neutron Legacy OVS Scenario - Service Layout](../common/images/networkguide-neutron-legacy-ovs-services.png "Neutron Legacy OVS Scenario - Service Layout")
+![Legacy OVS Scenario - Service Layout](../common/images/scenario-legacy-ovs-services.png "Legacy OVS Scenario - Service Layout")
 
 ## Architecture
 
@@ -90,16 +90,16 @@ creates a single point of failure and potential performance issues.
 Consider deploying DVR or L3 HA architectures in production environments
 to provide redundancy and increase performance.
 
-![Neutron Legacy OVS Scenario - Architecture Overview](../common/images/networkguide-neutron-legacy-general.png "Neutron Legacy OVS Scenario - Architecture Overview")
+![Legacy OVS Scenario - Architecture Overview](../common/images/scenario-legacy-general.png "Legacy OVS Scenario - Architecture Overview")
 
 The network node runs the Open vSwitch agent, L3 agent, DHCP agent, and
 metadata agent.
 
-![Neutron Legacy OVS Scenario - Network Node Overview](../common/images/networkguide-neutron-legacy-ovs-network1.png "Neutron Legacy OVS Scenario - Network Node Overview")
+![Legacy OVS Scenario - Network Node Overview](../common/images/scenario-legacy-ovs-network1.png "Legacy OVS Scenario - Network Node Overview")
 
 The compute nodes run the Open vSwitch agent.
 
-![Neutron Legacy OVS Scenario - Compute Node Overview](../common/images/networkguide-neutron-legacy-ovs-compute1.png "Neutron Legacy OVS Scenario - Compute Node Overview")
+![Legacy OVS Scenario - Compute Node Overview](../common/images/scenario-legacy-ovs-compute1.png "Legacy OVS Scenario - Compute Node Overview")
 
 ### Components
 
@@ -124,7 +124,7 @@ The network node contains the following components:
 
   1. The metadata agent handles metadata operations for instances.
 
-![Neutron Legacy OVS Scenario - Network Node Components](../common/images/networkguide-neutron-legacy-ovs-network2.png "Neutron Legacy OVS Scenario - Network Node Components")
+![Legacy OVS Scenario - Network Node Components](../common/images/scenario-legacy-ovs-network2.png "Legacy OVS Scenario - Network Node Components")
 
 The compute nodes contain the following components:
 
@@ -138,7 +138,7 @@ The compute nodes contain the following components:
      service uses a Linux bridge to manage security groups for
      instances.
 
-![Neutron Legacy OVS Scenario - Compute Node Components](../common/images/networkguide-neutron-legacy-ovs-compute2.png "Neutron Legacy OVS Scenario - Compute Node Components")
+![Legacy OVS Scenario - Compute Node Components](../common/images/scenario-legacy-ovs-compute2.png "Legacy OVS Scenario - Compute Node Components")
 
 ## Packet flow
 
@@ -264,7 +264,7 @@ The following steps involve the network node.
 
 Note: Return traffic follows similar steps in reverse.
 
-![Neutron Legacy OVS Scenario - Network Traffic Flow - North/South with Fixed IP Address](../common/images/networkguide-neutron-legacy-ovs-flowns1.png "Neutron Legacy OVS Scenario - Network Traffic Flow - North/South with Fixed IP Address")
+![Legacy OVS Scenario - Network Traffic Flow - North/South with Fixed IP Address](../common/images/scenario-legacy-ovs-flowns1.png "Legacy OVS Scenario - Network Traffic Flow - North/South with Fixed IP Address")
 
 ### Case 2: North-south for instances with a floating IP address
 
@@ -385,7 +385,7 @@ The following steps involve compute node 1.
 
 Note: Return traffic follows similar steps in reverse.
 
-![Neutron Legacy OVS Scenario - Network Traffic Flow - North/South with Floating IP Address](../common/images/networkguide-neutron-legacy-ovs-flowns2.png "Neutron Legacy OVS Scenario - Network Traffic Flow - North/South with Floating IP Address")
+![Legacy OVS Scenario - Network Traffic Flow - North/South with Floating IP Address](../common/images/scenario-legacy-ovs-flowns2.png "Legacy OVS Scenario - Network Traffic Flow - North/South with Floating IP Address")
 
 ### Case 3: East-west for instances with or without a floating IP address
 
@@ -556,7 +556,7 @@ The following steps involve compute node 2:
 
 Note: Return traffic follows similar steps in reverse.
 
-![Neutron Legacy OVS Scenario - Network Traffic Flow - East/West](../common/images/networkguide-neutron-legacy-ovs-flowew1.png "Neutron Legacy OVS Scenario - Network Traffic Flow - East/West")
+![Legacy OVS Scenario - Network Traffic Flow - East/West](../common/images/scenario-legacy-ovs-flowew1.png "Legacy OVS Scenario - Network Traffic Flow - East/West")
 
 ## Configuration
 
