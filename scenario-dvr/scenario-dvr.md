@@ -1,9 +1,9 @@
 # Scenario: Basic implementation of DVR
 
 This scenario describes a basic implementation of the OpenStack
-Networking distributed virtual router (DVR) feature using the ML2
-plug-in with Open vSwitch (OVS). The example configuration creates
-one flat external network and VXLAN tenant networks. However, DVR
+Networking distributed virtual router (DVR) feature using the modular
+layer 2 (ML2) plug-in with Open vSwitch (OVS). The example configuration
+creates one flat external network and VXLAN tenant networks. However, DVR
 also supports VLAN external networks and GRE tenant networks with
 minor modifications to the example configuration.
 
@@ -19,9 +19,9 @@ minor modifications to the example configuration.
    instance tunnels, and external (typically the Internet). The Open
    vSwitch bridge `br-ex` must contain a port on the external interface.
 
-![Neutron DVR Scenario - Hardware Requirements](../common/images/networkguide-neutron-dvr-hw.png "Neutron DVR Scenario - Hardware Requirements")
+![DVR Scenario - Hardware Requirements](../common/images/scenario-dvr-hw.png "DVR Scenario - Hardware Requirements")
 
-![Neutron DVR Scenario - Network Layout](../common/images/networkguide-neutron-dvr-networks.png "Neutron DVR Scenario - Network Layout")
+![DVR Scenario - Network Layout](../common/images/scenario-dvr-networks.png "DVR Scenario - Network Layout")
 
 **Warning: Proper operation of DVR requires Open vSwitch 2.1 or newer
 and VXLAN requires kernel 3.13 or better. In general, only Fedora 20
@@ -31,7 +31,9 @@ at least the following patch for proper operation of DVR:**
 
 https://review.openstack.org/#/c/133580/
 
-**For best operation, consider using the *master* branch of neutron:**
+** The Juno 2014.2.2 tag includes this patch and other useful patches.**
+
+** For best operation, consider using the *master* branch of neutron: **
 
 http://git.openstack.org/cgit/openstack/neutron/
 
@@ -74,7 +76,7 @@ http://git.openstack.org/cgit/openstack/neutron/
      metadata agent, and any dependencies including the `ipset` and
      `conntrack` utilities.
 
-![Neutron DVR Scenario - Service Layout](../common/images/networkguide-neutron-dvr-services.png "Neutron DVR Scenario - Service Layout")
+![DVR Scenario - Service Layout](../common/images/scenario-dvr-services.png "DVR Scenario - Service Layout")
 
 ## Architecture
 
@@ -87,21 +89,21 @@ the compute nodes to eliminate single point of failure and performance
 issues with a network node. However, instances without a floating IP
 address still use the network node for SNAT services.
 
-![Neutron DVR Scenario - Architecture Overview](../common/images/networkguide-neutron-dvr-general.png "Neutron DVR Scenario - Architecture Overview")
+![DVR Scenario - Architecture Overview](../common/images/scenario-dvr-general.png "DVR Scenario - Architecture Overview")
 
 Similar to the legacy architecture, the network node runs the L3
 agent, DHCP agent, and metadata agent. The L3 agent manages legacy
 routers. DVR can coexist with multiple DHCP agents. However, they
 cannot run on compute nodes.
 
-![Neutron DVR Scenario - Network Node Overview](../common/images/networkguide-neutron-dvr-network1.png "Neutron DVR Scenario - Network Node Overview")
+![DVR Scenario - Network Node Overview](../common/images/scenario-dvr-network1.png "DVR Scenario - Network Node Overview")
 
 Contrary to the legacy architecture, the compute node runs the L3
 agent and metadata agent. The L3 agent manages distributed routers.
 The metadata agent handles metadata operations for instances using
 tenant networks on distributed routers.
 
-![Neutron DVR Scenario - Compute Node Overview](../common/images/networkguide-neutron-dvr-compute1.png "Neutron DVR Scenario - Compute Node Overview")
+![DVR Scenario - Compute Node Overview](../common/images/scenario-dvr-compute1.png "DVR Scenario - Compute Node Overview")
 
 ### Components
 
@@ -135,7 +137,7 @@ The network node contains the following components:
   1. The metadata agent handles metadata operations for instances
      using tenant networks using legacy routers.
 
-![Neutron DVR Scenario - Network Node Components](../common/images/networkguide-neutron-dvr-network2.png "Neutron DVR Scenario - Network Node Components")
+![DVR Scenario - Network Node Components](../common/images/scenario-dvr-network2.png "DVR Scenario - Network Node Components")
 
 The compute nodes contain the following components:
 
@@ -166,7 +168,7 @@ The compute nodes contain the following components:
      service uses a Linux bridge to manage security groups for
      instances.
 
-![Neutron DVR Scenario - Compute Node Components](../common/images/networkguide-neutron-dvr-compute2.png "Neutron DVR Scenario - Compute Node Components")
+![DVR Scenario - Compute Node Components](../common/images/scenario-dvr-compute2.png "DVR Scenario - Compute Node Components")
 
 ## Packet flow
 
@@ -274,7 +276,7 @@ The following steps involve the network node.
 
 Note: Return traffic follows similar steps in reverse.
 
-![Neutron DVR Scenario - Network Traffic Flow - North/South with Fixed IP Address](../common/images/networkguide-neutron-dvr-flowns1.png "Neutron DVR Scenario - Network Traffic Flow - North/South with Fixed IP Address")
+![DVR Scenario - Network Traffic Flow - North/South with Fixed IP Address](../common/images/scenario-dvr-flowns1.png "DVR Scenario - Network Traffic Flow - North/South with Fixed IP Address")
 
 ### Case 2: North-south for instances with a floating IP address
 
@@ -391,7 +393,7 @@ compute node 1 to the external network.
 1. The Open vSwitch external bridge `br-ex` forwards the packet to the
    external network via the external interface.
 
-![Neutron DVR Scenario - Network Traffic Flow - North/South with Floating IP Address](../common/images/networkguide-neutron-dvr-flowns2.png "Neutron DVR Scenario - Network Traffic Flow - North/South with Floating IP Address")
+![DVR Scenario - Network Traffic Flow - North/South with Floating IP Address](../common/images/scenario-dvr-flowns2.png "DVR Scenario - Network Traffic Flow - North/South with Floating IP Address")
 
 ### Case 3: East-west for instances with or without a floating IP address
 
@@ -500,7 +502,7 @@ Note: Packets arriving from compute node 1 do not traverse the tenant
 network interfaces (5,6) in the `qrouter` namespace on compute node 2.
 However, return traffic traverses them.
 
-![Neutron DVR Scenario - Network Traffic Flow - East/West](../common/images/networkguide-neutron-dvr-flowew1.png "Neutron DVR Scenario - Network Traffic Flow - East/West")
+![DVR Scenario - Network Traffic Flow - East/West](../common/images/scenario-dvr-flowew1.png "DVR Scenario - Network Traffic Flow - East/West")
 
 ## Configuration
 
@@ -511,7 +513,7 @@ other nodes.
 
 1. Configure base options.
 
-  1. Edit the /etc/neutron/neutron.conf file.
+  1. Edit the `/etc/neutron/neutron.conf` file.
 
     ```
     [DEFAULT]
@@ -541,7 +543,7 @@ other nodes.
 
 1. Configure the ML2 plug-in.
 
-  1. Edit the /etc/neutron/plugins/ml2/ml2_conf.ini file.
+  1. Edit the `/etc/neutron/plugins/ml2/ml2_conf.ini` file.
 
     ```
     [ml2]
@@ -570,7 +572,7 @@ instances without a floating IP address.
 
 1. Configure base options.
 
-  1. Edit the /etc/neutron/neutron.conf file.
+  1. Edit the `/etc/neutron/neutron.conf` file.
 
     ```
     [DEFAULT]
@@ -588,7 +590,7 @@ instances without a floating IP address.
 
 1. Configure the ML2 plug-in.
 
-  1. Edit the /etc/neutron/plugins/ml2/ml2_conf.ini file.
+  1. Edit the `/etc/neutron/plugins/ml2/ml2_conf.ini` file.
 
     ```
     [ml2]
@@ -625,7 +627,7 @@ instances without a floating IP address.
 
 1. Configure the L3 agent.
 
-  1. Edit the /etc/neutron/l3_agent.ini file.
+  1. Edit the `/etc/neutron/l3_agent.ini` file.
 
     ```
     [DEFAULT]
@@ -639,7 +641,7 @@ instances without a floating IP address.
 
 1. Configure the DHCP agent.
 
-  1. Edit the /etc/neutron/dhcp_agent.ini file.
+  1. Edit the `/etc/neutron/dhcp_agent.ini` file.
 
     ```
     verbose = True
@@ -651,13 +653,13 @@ instances without a floating IP address.
 
   1. (Optional) Reduce MTU for VXLAN tenant networks.
 
-    1. Edit the /etc/neutron/dhcp_agent.ini file.
+    1. Edit the `/etc/neutron/dhcp_agent.ini` file.
 
     ```
     dnsmasq_config_file = /etc/neutron/dnsmasq-neutron.conf
     ```
 
-    1. Edit the /etc/neutron/dnsmasq-neutron.conf file.
+    1. Edit the `/etc/neutron/dnsmasq-neutron.conf` file.
 
     ```
     dhcp-option-force=26,1450
@@ -665,7 +667,7 @@ instances without a floating IP address.
 
 1. Configure the metadata agent.
 
-  1. Edit the /etc/neutron/metadata_agent.ini file.
+  1. Edit the `/etc/neutron/metadata_agent.ini` file.
 
     ```
     [DEFAULT]
@@ -697,7 +699,7 @@ addresses.
 
 1. Configure base options.
 
-  1. Edit the /etc/neutron/neutron.conf file.
+  1. Edit the `/etc/neutron/neutron.conf` file.
 
     ```
     [DEFAULT]
@@ -714,7 +716,7 @@ addresses.
 
 1. Configure the ML2 plug-in.
 
-  1. Edit the /etc/neutron/plugins/ml2/ml2_conf.ini file.
+  1. Edit the `/etc/neutron/plugins/ml2/ml2_conf.ini` file.
 
     ```
     [ml2]
@@ -751,7 +753,7 @@ addresses.
 
 1. Configure the L3 agent.
 
-  1. Edit the /etc/neutron/l3_agent.ini file.
+  1. Edit the `/etc/neutron/l3_agent.ini` file.
 
     ```
     [DEFAULT]
@@ -764,7 +766,7 @@ addresses.
 
 1. Configure the metadata agent.
 
-  1. Edit the /etc/neutron/metadata_agent.ini file.
+  1. Edit the `/etc/neutron/metadata_agent.ini` file.
 
     ```
     [DEFAULT]
@@ -934,7 +936,7 @@ addresses.
   +-----------------------+--------------------------------------+
   ```
 
-  Note: Default policy might prevent the 'distributed' flag from
+  Note: Default policy might prevent the `distributed` flag from
   appearing in the command output.
 
 1. Add a tenant subnet interface on the router.
@@ -953,7 +955,7 @@ addresses.
 
 ## Verify operation
 
-1. On the network node, verify creation of the 'snat', 'qrouter', and 'qdhcp'
+1. On the network node, verify creation of the `snat`, `qrouter`, and `qdhcp`
    namespaces.
 
   ```
@@ -970,7 +972,7 @@ addresses.
    allocation range.
 
   ```
-  # ping -c 4 203.0.113.101
+  $ ping -c 4 203.0.113.101
   PING 203.0.113.101 (203.0.113.101) 56(84) bytes of data.
   64 bytes from 203.0.113.101: icmp_req=1 ttl=64 time=0.619 ms
   64 bytes from 203.0.113.101: icmp_req=2 ttl=64 time=0.189 ms
@@ -986,7 +988,7 @@ addresses.
 
 1. Launch an instance with an interface on the tenant network.
 
-1. On the compute node with the instance, verify creation of the 'qrouter'
+1. On the compute node with the instance, verify creation of the `qrouter`
    namespace.
 
   ```
@@ -1054,7 +1056,7 @@ addresses.
   $ nova floating-ip-associate demo-instance1 203.0.113.102
   ```
 
-1. On the compute node with the instance, verify creation of the 'fip'
+1. On the compute node with the instance, verify creation of the `fip`
    namespace.
 
   ```
