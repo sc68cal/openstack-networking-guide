@@ -21,9 +21,9 @@ production environments, tenant VLAN networks can use any network interface.
 1. At least one compute nodes with three network interfaces: management,
    tenant tunnel networks, and tenant VLAN networks.
 
-![Neutron Legacy OVS Scenario - Hardware Requirements](../common/images/networkguide-neutron-legacy-hw.png "Neutron Legacy OVS Scenario - Hardware Requirements")
+![Legacy LB Scenario - Hardware Requirements](../common/images/scenario-legacy-hw.png "Legacy LB Scenario - Hardware Requirements")
 
-![Neutron Legacy OVS Scenario - Network Layout](../common/images/networkguide-neutron-legacy-networks.png "Neutron Legacy OVS Scenario - Network Layout")
+![Legacy LB Scenario - Network Layout](../common/images/scenario-legacy-networks.png "Legacy LB Scenario - Network Layout")
 
 Note: For VLAN external and tenant networks, the network infrastructure
 must support VLAN tagging. For best performance with VXLAN tenant networks,
@@ -71,7 +71,7 @@ minimum version requirement when using packages rather than source.**
   1. Open vSwitch service, ML2 plug-in, Linux Bridge agent, and any
      dependencies including the `ipset` utility.
 
-![Neutron Legacy LB Scenario - Service Layout](../common/images/networkguide-neutron-legacy-lb-services.png "Neutron Legacy LB Scenario - Service Layout")
+![Legacy LB Scenario - Service Layout](../common/images/scenario-legacy-lb-services.png "Legacy LB Scenario - Service Layout")
 
 ## Architecture
 
@@ -86,16 +86,16 @@ Consider deploying DVR or L3 HA architectures in production environments
 to provide redundancy and increase performance. However, the DVR and L3
 HA architectures require Open vSwitch.
 
-![Neutron Legacy LB Scenario - Architecture Overview](../common/images/networkguide-neutron-legacy-general.png "Neutron Legacy LB Scenario - Architecture Overview")
+![Legacy LB Scenario - Architecture Overview](../common/images/scenario-legacy-general.png "Legacy LB Scenario - Architecture Overview")
 
 The network node runs the Linux Bridge agent, L3 agent, DHCP agent, and
 metadata agent.
 
-![Neutron Legacy LB Scenario - Network Node Overview](../common/images/networkguide-neutron-legacy-lb-network1.png "Neutron Legacy LB Scenario - Network Node Overview")
+![Legacy LB Scenario - Network Node Overview](../common/images/scenario-legacy-lb-network1.png "Legacy LB Scenario - Network Node Overview")
 
 The compute nodes run the Linux Bridge agent.
 
-![Neutron Legacy LB Scenario - Compute Node Overview](../common/images/networkguide-neutron-legacy-lb-compute1.png "Neutron Legacy LB Scenario - Compute Node Overview")
+![Legacy LB Scenario - Compute Node Overview](../common/images/scenario-legacy-lb-compute1.png "Legacy LB Scenario - Compute Node Overview")
 
 ### Components
 
@@ -120,7 +120,7 @@ The network node contains the following components:
 
   1. The metadata agent handles metadata operations for instances.
 
-![Neutron Legacy LB Scenario - Network Node Components](../common/images/networkguide-neutron-legacy-lb-network2.png "Neutron Legacy LB Scenario - Network Node Components")
+![Legacy LB Scenario - Network Node Components](../common/images/scenario-legacy-lb-network2.png "Legacy LB Scenario - Network Node Components")
 
 The compute nodes contain the following components:
 
@@ -128,7 +128,7 @@ The compute nodes contain the following components:
    them, and interaction via virtual ports with other network components
    such as namespaces, security groups, and underlying interfaces.
 
-![Neutron Legacy LB Scenario - Compute Node Components](../common/images/networkguide-neutron-legacy-lb-compute2.png "Neutron Legacy LB Scenario - Compute Node Components")
+![Legacy LB Scenario - Compute Node Components](../common/images/scenario-legacy-lb-compute2.png "Legacy LB Scenario - Compute Node Components")
 
 ## Packet flow
 
@@ -247,7 +247,7 @@ The following steps involve the network node.
 
 Note: Return traffic follows similar steps in reverse.
 
-![Neutron Legacy LB Scenario - Network Traffic Flow - North/South with Fixed IP Address](../common/images/networkguide-neutron-legacy-lb-flowns1.png "Neutron Legacy LB Scenario - Network Traffic Flow - North/South with Fixed IP Address")
+![Legacy LB Scenario - Network Traffic Flow - North/South with Fixed IP Address](../common/images/scenario-legacy-lb-flowns1.png "Legacy LB Scenario - Network Traffic Flow - North/South with Fixed IP Address")
 
 ### Case 2: North-south for instances with a floating IP address
 
@@ -357,7 +357,7 @@ The following steps involve compute node 1.
 
 Note: Return traffic follows similar steps in reverse.
 
-![Neutron Legacy LB Scenario - Network Traffic Flow - North/South with Floating IP Address](../common/images/networkguide-neutron-legacy-lb-flowns2.png "Neutron Legacy LB Scenario - Network Traffic Flow - North/South with Floating IP Address")
+![Legacy LB Scenario - Network Traffic Flow - North/South with Floating IP Address](../common/images/scenario-legacy-lb-flowns2.png "Legacy LB Scenario - Network Traffic Flow - North/South with Floating IP Address")
 
 ### Case 3: East-west for instances with or without a floating IP address
 
@@ -370,9 +370,10 @@ travels between instances, typically on different tenant networks.
 
 #### Example environment configuration
 
-Instance 1 resides on compute node 1 and uses tenant network 1. Instance
-2 resides on compute node 2 and uses tenant network 2. Both tenant networks
-reside on the same router. Instance 1 sends a packet to instance 2.
+Instance 1 resides on compute node 1 and uses tenant VXLAN network 1.
+Instance 2 resides on compute node 2 and uses tenant VLAN network 2. Both
+tenant networks reside on the same router. Instance 1 sends a packet to
+instance 2.
 
 * Tenant network 1
 
@@ -395,12 +396,6 @@ reside on the same router. Instance 1 sends a packet to instance 2.
   * Instance 2: 192.168.2.11 with MAC address *I2*
 
 #### Packet flow
-
-Although the diagram shows both VXLAN and VLAN tenant networks on each
-compute node, the packet flow only considers one active VXLAN tenant
-network on compute node 1 and one active VLAN tenant network on compute
-node 2. The unlabeled components in the diagram exist to enhance
-visualization of the architecture.
 
 The following steps involve compute node 1:
 
@@ -526,7 +521,7 @@ The following steps involve compute node 2:
 
 Note: Return traffic follows similar steps in reverse.
 
-![Neutron Legacy LB Scenario - Network Traffic Flow - East/West](../common/images/networkguide-neutron-legacy-lb-flowew1.png "Neutron Legacy LB Scenario - Network Traffic Flow - East/West")
+![Legacy LB Scenario - Network Traffic Flow - East/West](../common/images/scenario-legacy-lb-flowew1.png "Legacy LB Scenario - Network Traffic Flow - East/West")
 
 ## Configuration
 
